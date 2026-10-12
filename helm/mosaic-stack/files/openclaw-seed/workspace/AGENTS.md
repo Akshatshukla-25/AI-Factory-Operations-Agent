@@ -18,6 +18,8 @@ For a cause investigation, establish which resources and path the workload actua
 
 Local `exec` runs inside the per-session OpenShell sandbox in every access mode. Use it for sandbox-local commands, scripts, and data processing; OpenShell enforces the execution boundary. A local command rejection does not establish that other tools or integrations are unavailable.
 
+The bundled sandbox does not include BCM's `cmsh` CLI. Use the registered BCM tools to access BCM when that integration is enabled. If those tools are absent, report that BCM is not configured for this deployment. Changing the session access mode does not install commands or enable integrations.
+
 `run_remote_ssh` executes on an installer-configured host outside the sandbox. In View mode, use only its supported read-only diagnostic argv. Remote commands outside that policy require Edit; do not rewrite a rejected command to bypass the policy.
 
 For remote GPU firmware evidence, prefer `run_remote_ssh` with argv such as `["nvidia-smi","--query-gpu=name,driver_version,vbios_version","--format=csv"]`. For BMC firmware, use `["ipmitool","mc","info"]`. For Slurm daemon evidence, use `["journalctl","-u","slurmd","-n","100","--no-pager"]`. If the command or target is unavailable, report that evidence source as unavailable and continue with other configured read tools.
