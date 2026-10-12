@@ -194,7 +194,7 @@ kubectl -n mosaic get secret mosaic-ui-auth -o jsonpath='{.data.password}' | bas
 
 `mosaicUi.auth.existingSecret` is only for installations that manage credentials outside this chart. When it is set, the chart does not create or modify the Secret, so the externally managed Secret must provide `username`, `password`, and `machineToken`.
 
-Open `http://localhost:3000`.
+Open `http://localhost:3000` and sign in with the username and password above.
 
 ## Extensions
 
@@ -521,7 +521,11 @@ If Helm is not already authenticated to NVCR, run the registry login command fro
 The AI Factory Operations Agent UI service also exposes a headless API:
 
 ```bash
-curl -sS http://localhost:3000/api/headless/chat \
+export MOSAIC_URL=http://127.0.0.1:3000
+export MOSAIC_UI_MACHINE_TOKEN="$(kubectl -n mosaic get secret mosaic-ui-auth \
+  -o jsonpath='{.data.machineToken}' | base64 --decode)"
+curl -sS "$MOSAIC_URL/api/headless/chat" \
+  --header @<(printf 'Authorization: Bearer %s\n' "$MOSAIC_UI_MACHINE_TOKEN") \
   -H 'content-type: application/json' \
   -d '{"prompt":"summarize whether the cluster is healthy","sessionKey":"headless"}'
 ```
@@ -550,13 +554,15 @@ claude mcp add mosaic \
   -- ~/.local/bin/mosaic-mcp
 ```
 
-For Codex:
+For Codex, add the following to your user `~/.codex/config.toml`, replacing the command with the absolute installed path:
 
-```bash
-codex mcp add mosaic \
-  --env MOSAIC_URL=http://localhost:3000 \
-  -- ~/.local/bin/mosaic-mcp
+```toml
+[mcp_servers.mosaic]
+command = "/home/USER/.local/bin/mosaic-mcp"
+env_vars = ["MOSAIC_URL", "MOSAIC_UI_MACHINE_TOKEN"]
 ```
+
+Start the MCP client from the shell where `MOSAIC_URL` and `MOSAIC_UI_MACHINE_TOKEN` are exported.
 
 Replace `http://localhost:3000` with the deployed AI Factory Operations Agent URL when it is reachable directly. The bridge exposes `ai_factory_operations_agent_chat`, `ai_factory_operations_agent_history`, `ai_factory_operations_agent_commands`, and the AI Factory Operations Agent/OpenClaw tools enabled by the chart over stdio MCP. See `docs/skills/ai-factory-operations-agent-headless/SKILL.md` for the complete agent workflow.
 
