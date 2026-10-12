@@ -3,7 +3,6 @@
 
 const PROGRAM = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 const ARGUMENT = /^[A-Za-z0-9_./:=,+%@-]+$/;
-const SHELL_SYNTAX = /[\0\r\n;&|`$<>()[\]{}*?!\\'\"]/;
 
 const exact = (...commands: string[][]) => (args: string[]) =>
   commands.some(command => command.length === args.length && command.every((value, index) => value === args[index]));
@@ -95,13 +94,4 @@ export function isAllowedDiagnosticArgv(value: unknown): value is string[] {
   const [program, ...args] = value as string[];
   if (!PROGRAM.test(program)) return false;
   return RULES[program.toLowerCase()]?.(args) === true;
-}
-
-export function diagnosticExecArgv(value: unknown) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
-  const params = value as Record<string, unknown>;
-  if (Object.keys(params).some(key => key !== 'command')) return undefined;
-  if (typeof params.command !== 'string' || !params.command.trim() || params.command.length > 4096 || SHELL_SYNTAX.test(params.command)) return undefined;
-  const argv = params.command.trim().split(/\s+/);
-  return isAllowedDiagnosticArgv(argv) ? argv : undefined;
 }

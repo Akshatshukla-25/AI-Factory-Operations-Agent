@@ -4,7 +4,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  diagnosticExecArgv,
   isAllowedDiagnosticArgv,
 } from "../files/openclaw-seed/extensions/diagnostic-policy.ts";
 
@@ -34,15 +33,4 @@ test("rejects mutation flags, arbitrary programs, paths, and shell syntax", () =
     ["/usr/bin/hostname"],
     ["hostname", ";", "touch", "/tmp/pwned"],
   ]) assert.equal(isAllowedDiagnosticArgv(argv), false, argv.join(" "));
-});
-
-test("parses only a bare safe exec command", () => {
-  assert.deepEqual(diagnosticExecArgv({ command: "nvidia-smi -L" }), ["nvidia-smi", "-L"]);
-  for (const params of [
-    { command: "hostname && touch /tmp/pwned" },
-    { command: "systemctl restart slurmd" },
-    { command: "hostname", workdir: "/tmp" },
-    { command: "'hostname'" },
-    { command: "/usr/bin/hostname" },
-  ]) assert.equal(diagnosticExecArgv(params), undefined);
 });
