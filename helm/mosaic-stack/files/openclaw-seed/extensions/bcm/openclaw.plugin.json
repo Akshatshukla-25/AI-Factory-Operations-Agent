@@ -7,6 +7,8 @@
   },
   "contracts": {
     "tools": [
+      "bcm_health",
+      "bcm_search_docs",
       "bcm_get_info",
       "bcm_node_health_summary",
       "bcm_search_tools",
