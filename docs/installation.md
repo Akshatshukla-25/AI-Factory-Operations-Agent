@@ -315,7 +315,7 @@ Every interactive conversation starts in **View**. Users can switch that convers
 
 Native Slack users remain read-only unless their verified Slack user ID is listed under `openclaw.slack.editUserIds`. Edit users approve their own mutations with Slack buttons. The broader `openclaw.slack.allowedUserIds` list controls who may use AI Factory Operations Agent through DMs, group DMs, and channel mentions.
 
-Privileges are attached to separate tools and credentials. Read-only tools and the local and remote diagnostic command allowlist run automatically in View. Mutating Kubernetes, Base Command Manager, and SSH operations are blocked in View, approval-gated in Edit when `hitl: true`, and automatic in Auto. Kubernetes RBAC, request validation, configured SSH hosts, and audit logging apply in every mode.
+Privileges are attached to separate tools and credentials. Read-only infrastructure tools and sandbox-local execution run automatically in View. OpenShell enforces local execution boundaries; the diagnostic command allowlist applies to remote SSH. Mutating Kubernetes, Base Command Manager, and SSH operations are blocked in View, approval-gated in Edit when `hitl: true`, and automatic in Auto. Kubernetes RBAC, request validation, configured SSH hosts, and audit logging apply in every mode.
 
 Read [the AI Factory Operations Agent security model](security_model.md) before enabling Edit or Auto.
 

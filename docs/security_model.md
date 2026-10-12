@@ -8,7 +8,7 @@ AI Factory Operations Agent separates observation from mutation at the tool, cre
 
 When the Edit module is enabled, every new interactive conversation still starts in View mode. Access is selected per conversation:
 
-| Mode | Read-only tools | Safe diagnostics | Mutating tools |
+| Mode | Read-only tools | Sandbox execution and remote diagnostics | Infrastructure mutations |
 | --- | --- | --- | --- |
 | View | Automatic | Automatic | Blocked |
 | Edit | Automatic | Automatic | Requires approval when `modules.edit.hitl=true` |
@@ -41,9 +41,11 @@ Base Command Manager's configured profile remains authoritative. Enabling Base C
 
 ## Diagnostic Commands And SSH
 
-View mode can run a bounded set of read-only diagnostic commands locally through OpenShell or on configured hosts through `run_remote_ssh`. The shared policy in `diagnostic-policy.ts` validates the executable and every argument. It covers common hardware, operating-system, networking, and Slurm inspection commands such as `nvidia-smi`, `ipmitool mc info`, `journalctl`, `squeue`, and `scontrol show`.
+Local `exec` runs inside the per-session OpenShell sandbox in View, Edit, Auto, and automated sessions. OpenShell enforces this boundary; the session guard does not parse or allowlist sandbox commands.
 
-The diagnostic policy rejects executable paths, shell operators, quoting, redirection, command substitution, nested SSH, arbitrary programs, and known mutating flags. Commands outside this policy are blocked in View and use Edit or Auto handling when available.
+View mode can run a bounded set of read-only diagnostic commands on configured hosts through `run_remote_ssh`. Its policy in `diagnostic-policy.ts` validates the executable and every argument. It covers common hardware, operating-system, networking, and Slurm inspection commands such as `nvidia-smi`, `ipmitool mc info`, `journalctl`, `squeue`, and `scontrol show`.
+
+The remote diagnostic policy rejects executable paths, shell operators, quoting, redirection, command substitution, nested SSH, arbitrary programs, and known mutating flags. Remote commands outside this policy are blocked in View and use Edit or Auto handling when available.
 
 Remote SSH has additional constraints:
 
@@ -63,7 +65,7 @@ Auto presents a warning before activation, then executes the same validated muta
 ## Automation, Sandboxing, And Audit
 
 - Scheduled cluster checks and alert-triggered sessions are marked as automation and reject all mutating tools regardless of requested mode.
-- General local command execution remains inside OpenShell. View permits only the diagnostic allowlist; other commands require an interactive Edit or Auto session.
+- General local command execution remains inside OpenShell in every mode and is not subject to the remote diagnostic allowlist.
 - Tool calls, approvals, denials, and results are recorded in the audit stream.
 - Secrets remain Kubernetes Secrets and are mounted only into the workloads that need them. They are not supplied through prompts or committed values.
 

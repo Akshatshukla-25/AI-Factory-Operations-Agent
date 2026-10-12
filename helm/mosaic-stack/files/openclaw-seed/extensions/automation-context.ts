@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { diagnosticExecArgv, isAllowedDiagnosticArgv } from "./diagnostic-policy.ts";
+import { isAllowedDiagnosticArgv } from "./diagnostic-policy.ts";
 
 const AUTOMATION_SESSION = /(?:^|:)mosaic-automation-(cluster-monitor|alert)-[a-z0-9][a-z0-9_-]*(?::|$)/i;
 
@@ -37,6 +37,8 @@ const READ_ONLY_TOOLS = new Set([
   "dcgm_metric_names",
   "dcgm_raw_metric",
   "dcgm_top",
+  // OpenShell enforces the execution boundary in every session mode.
+  "exec",
   "find",
   "get_goal",
   "glob",
@@ -208,7 +210,6 @@ export function contextSkipsApproval(context: ToolContext) {
 export function toolAccess(toolName: unknown, params?: unknown): ToolAccess {
   if (typeof toolName !== "string") return "unknown";
   const normalized = toolName.trim().toLowerCase();
-  if (normalized === "exec") return diagnosticExecArgv(params) === undefined ? "edit" : "read";
   if (normalized === "run_remote_ssh") {
     const argv = params && typeof params === "object" && !Array.isArray(params)
       ? (params as { argv?: unknown }).argv
