@@ -9,8 +9,11 @@ import test from "node:test";
 
 const bridge = fileURLToPath(new URL("mosaic-mcp.mjs", import.meta.url));
 
-test("stdio bridge exposes and invokes configured tools", async t => {
+for (const token of ["", "test-machine-token"]) {
+test(`stdio bridge exposes and invokes tools ${token ? "with" : "without"} a token`, async t => {
   const server = createServer((request, response) => {
+    assert.equal(request.headers.authorization, token ? `Bearer ${token}` : undefined);
+    if (request.method === "POST") assert.equal(request.headers["content-type"], "application/json");
     response.setHeader("content-type", "application/json");
     if (request.url === "/api/openclaw/tools") {
       response.end(JSON.stringify({ tools: [{ name: "cluster_status", description: "Read cluster status." }] }));
@@ -27,7 +30,7 @@ test("stdio bridge exposes and invokes configured tools", async t => {
 
   const { port } = server.address();
   const child = spawn(process.execPath, [bridge], {
-    env: { ...process.env, MOSAIC_URL: `http://127.0.0.1:${port}` },
+    env: { ...process.env, MOSAIC_URL: `http://127.0.0.1:${port}`, MOSAIC_UI_MACHINE_TOKEN: token },
     stdio: ["pipe", "pipe", "inherit"],
   });
   t.after(() => child.kill("SIGTERM"));
@@ -69,4 +72,12 @@ test("stdio bridge exposes and invokes configured tools", async t => {
     arguments: {},
   });
   assert.match(called.result.content[0].text, /healthy/);
+  for (const [i, name] of ["chat", "history", "commands"].entries()) {
+    const result = await request(4 + i, "tools/call", {
+      name: `ai_factory_operations_agent_${name}`, arguments: { prompt: "status" },
+    });
+    assert.equal(result.error, undefined);
+    assert.equal(result.result.isError, undefined);
+  }
 });
+}

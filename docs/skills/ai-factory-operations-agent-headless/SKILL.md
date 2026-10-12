@@ -14,10 +14,13 @@ Use this skill when a coding agent needs AI Factory Operations Agent to answer a
 
 ## Check For An Existing Service
 
+Load `MOSAIC_UI_MACHINE_TOKEN` using the [headless setup commands](../../installation.md#headless-mode).
+
 If `MOSAIC_URL` is already set, use it. Otherwise try the local default:
 
 ```bash
-curl -fsS http://127.0.0.1:3000/api/openclaw/commands >/dev/null
+curl -fsS "${MOSAIC_URL:-http://127.0.0.1:3000}/api/openclaw/commands" \
+  --header @<(printf 'Authorization: Bearer %s\n' "$MOSAIC_UI_MACHINE_TOKEN") >/dev/null
 ```
 
 For a Kubernetes deployment, port-forward the UI service and set `MOSAIC_URL`:
@@ -51,6 +54,7 @@ Use the headless API when the CLI is not installed:
 
 ```bash
 curl -sS "$MOSAIC_URL/api/headless/chat" \
+  --header @<(printf 'Authorization: Bearer %s\n' "$MOSAIC_UI_MACHINE_TOKEN") \
   -H 'content-type: application/json' \
   -d '{"sessionKey":"headless","prompt":"summarize whether the cluster is healthy"}'
 ```
@@ -75,7 +79,7 @@ Tools exposed:
 - `ai_factory_operations_agent_commands`: list slash commands and agent entrypoints.
 - Every OpenClaw tool available to the deployed agent, including Base Command Manager, Kubernetes, observability, Slurm, and shell tools when enabled by the chart.
 
-Add the service to Claude Code with a local bridge that points at the UI service:
+Start the client from the shell containing the exported URL and token. The CLI and bridge read `MOSAIC_UI_MACHINE_TOKEN` and send it as a Bearer header. Add the service to Claude Code with a local bridge that points at the UI service:
 
 ```bash
 claude mcp add ai_factory_operations_agent \
@@ -88,10 +92,10 @@ Add the same bridge to Codex with:
 ```toml
 [mcp_servers.ai_factory_operations_agent]
 command = "/home/USER/.local/bin/mosaic-mcp"
-env = { MOSAIC_URL = "http://127.0.0.1:3000" }
+env_vars = ["MOSAIC_URL", "MOSAIC_UI_MACHINE_TOKEN"]
 ```
 
-Or install it with the Codex CLI:
+Alternatively register the command with the Codex CLI, then add the `env_vars` setting above to its configuration:
 
 ```bash
 codex mcp add ai_factory_operations_agent --env MOSAIC_URL=http://127.0.0.1:3000 -- \
