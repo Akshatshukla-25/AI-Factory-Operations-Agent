@@ -125,7 +125,7 @@ if (root) {
   copy.addEventListener('click', async () => {try {await navigator.clipboard.writeText(code.textContent); status.textContent = 'Copied';} catch {status.textContent = 'Select the command text to copy it.';}});
   const sizing = document.createElement('section'); sizing.className = 'builder-sizing';
   let catalog;
-  root.replaceChildren(form, sizing, heading, copy, status, output);
+  root.replaceChildren(form, heading, copy, status, output, sizing);
   fetch(new URL('sizing-data.json', import.meta.url)).then(response => {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.json();
@@ -212,17 +212,17 @@ export function renderSizing(panel, catalog, state, enabled) {
     const volumes = typeof component.storage === 'string' ? [component.storage] : component.storage || [];
     return sum + volumes.reduce((amount, value) => amount + quantity(value, 'memory'), 0) * component.count;
   }, 0);
-  const resources = document.createElement('dl');
+  const resources = document.createElement('table');
+  const header = resources.createTHead().insertRow();
+  const row = resources.createTBody().insertRow();
   for (const [label, value] of [
     ['CPU', `≥ ${format(total('cpu'), 'cpu')} cores`],
     ['RAM', `≥ ${format(total('memory'), 'memory')}`],
     ['GPUs', format(total('nvidia.com/gpu'), 'nvidia.com/gpu')],
     ['Disk', format(storage, 'memory')],
   ]) {
-    const item = document.createElement('div');
-    const name = document.createElement('dt'); name.textContent = label;
-    const amount = document.createElement('dd'); amount.textContent = value;
-    item.append(name, amount); resources.append(item);
+    const name = document.createElement('th'); name.scope = 'col'; name.textContent = label;
+    header.append(name); row.insertCell().textContent = value;
   }
   const note = document.createElement('p'); note.className = 'builder-sizing-note';
   note.textContent = 'Configured minimums for this chart. Allow extra capacity for concurrency and services without declared resources; existing services and per-node collectors are excluded.';
