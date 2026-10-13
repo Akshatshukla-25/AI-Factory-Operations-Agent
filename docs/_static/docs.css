@@ -31,6 +31,9 @@ pre, .admonition, .search-button { border-radius: 0; }
 @media (max-width: 600px) { #install-command-builder .builder-settings, .builder-modules { grid-template-columns: 1fr; } }
 
 #install-command-builder .builder-settings > label:has(input[type=checkbox]) { flex-direction: row; align-items: center; grid-column: 1 / -1; }
-.builder-sizing-table { overflow-x: auto; }
-.builder-sizing table { width: 100%; min-width: 720px; font-size: .85rem; }
-.builder-sizing th, .builder-sizing td { padding: .4rem; text-align: left; }
+.builder-sizing { margin: 2rem 0; }
+.builder-sizing dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
+.builder-sizing dt { color: var(--pst-color-text-muted); font-weight: 400; }
+.builder-sizing dd { margin: .25rem 0 0; font-size: 1.35rem; font-weight: 600; }
+.builder-sizing-note { font-size: .85rem; color: var(--pst-color-text-muted); }
+@media (max-width: 600px) { .builder-sizing dl { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
