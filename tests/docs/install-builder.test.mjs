@@ -4,7 +4,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {buildCommand, enabledModules, footprint, quantity, selectedComponents} from '../../docs/_static/install-builder.mjs';
+import {buildCommand, enabledModules, footprint, modules, quantity, selectedComponents} from '../../docs/_static/install-builder.mjs';
 const chart = fileURLToPath(new URL('../../helm/mosaic-stack', import.meta.url));
 function argumentsFor(state) {
   const shell = `trap '[ -z "\${MOSAIC_CHART_WORKDIR:-}" ] || rm -rf "$MOSAIC_CHART_WORKDIR"' EXIT; helm() { if [ "$1" = pull ]; then ln -s '${chart}' "$MOSAIC_CHART_WORKDIR/mosaic-stack"; else printf '%s\\0' "$@"; fi; };\n${buildCommand(state)}\nprintf '%s\\0' "\${MOSAIC_CHART_WORKDIR:-}"`;
@@ -86,13 +86,15 @@ catalog=generate()
 cases=[]
 for inference in ['external','super','ultra']:
  for backend in ['bcm','vanilla']:
-  for modules in [MODULES, MODULES[::2], MODULES[1::2]]:
+  for modules in [[module] for module in MODULES] + [MODULES, MODULES[::2], MODULES[1::2]]:
    state={'inference':inference,'modules':modules,'slurmBackend':backend,'baseUrl':'https://inference.example.com/v1','model':'served-model','bcmHead':'head.example.com','evidenceRoot':'/slurm','evidenceNode':'collector-node','corpus':'/corpus'}
    cases.append({'state':state,'components':list(render_footprint(state).values())})
 print(json.dumps({'catalog':catalog,'cases':cases}))`;
   const result = spawnSync('uv', ['run', '--project', 'docs', '--locked', 'python', '-c', script], {cwd: fileURLToPath(new URL('../../', import.meta.url)), encoding: 'utf8', maxBuffer: 8 * 1024 * 1024});
   assert.equal(result.status, 0, result.stderr);
   const {catalog, cases} = JSON.parse(result.stdout);
+  assert.deepEqual(Object.keys(catalog.variants).filter(name => !['sandbox', 'super', 'ultra', 'slurm-vanilla'].includes(name)).sort(),
+    [...enabledModules({modules: Object.keys(modules)})].sort());
   const normalize = components => Object.fromEntries(components.map(component => [`${component.kind}/${component.name}`, {...component,
     containers: [...(component.containers || [])].sort((left, right) => left.name.localeCompare(right.name)),
     initContainers: [...(component.initContainers || [])].sort((left, right) => left.name.localeCompare(right.name)),

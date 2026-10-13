@@ -47,7 +47,10 @@ def setup(app):
 
 ROOT = Path(__file__).resolve().parents[1]
 CHART = ROOT / "helm/mosaic-stack"
-MODULES = ["kubernetes", "observability", "grafana", "bcm", "slurm", "diagnostics", "research", "terminal", "edit", "clusters"]
+MODULES = json.loads(subprocess.check_output([
+    "node", "--input-type=module", "-e",
+    "import {modules,enabledModules} from './docs/_static/install-builder.mjs'; console.log(JSON.stringify([...enabledModules({modules:Object.keys(modules)})]));",
+], cwd=ROOT, text=True))
 
 
 def render_footprint(state):

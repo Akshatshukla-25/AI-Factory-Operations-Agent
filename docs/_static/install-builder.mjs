@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 const chart = 'oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack';
-const modules = {
+export const modules = {
   kubernetes: 'Kubernetes', observability: 'Prometheus and Alertmanager', grafana: 'Grafana',
   bcm: 'Base Command Manager', slurm: 'Slurm', diagnostics: 'Hardware diagnostics',
   research: 'Research', terminal: 'Browser terminal', edit: 'Guarded Kubernetes edits', clusters: 'Cluster monitoring',
