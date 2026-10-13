@@ -194,7 +194,7 @@ kubectl -n mosaic get secret mosaic-ui-auth -o jsonpath='{.data.password}' | bas
 
 `mosaicUi.auth.existingSecret` is only for installations that manage credentials outside this chart. When it is set, the chart does not create or modify the Secret, so the externally managed Secret must provide `username`, `password`, and `machineToken`.
 
-Open `http://localhost:3000`.
+Open `http://localhost:3000` and sign in with the username and password above.
 
 ## Extensions
 
@@ -215,6 +215,26 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --wait \
   --timeout 12m
 ```
+
+### Read-only Loki logs
+
+To connect Mosaic to an existing Loki service, run:
+
+```bash
+export LOKI_URL='https://logs.example.com'
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel \
+  -n mosaic \
+  --reuse-values \
+  --set modules.observability.enabled=true \
+  --set-string observability.loki.url="$LOKI_URL" \
+  --wait \
+  --timeout 12m
+```
+
+Mosaic queries existing logs; it does not install Loki or a collector. For endpoints
+requiring authentication or a tenant ID, see [Loki connection options](loki.md#connection-options).
+Verify access by asking Mosaic to show 10 log entries from the past 15 minutes.
 
 ### Alertmanager
 
@@ -295,7 +315,7 @@ Every interactive conversation starts in **View**. Users can switch that convers
 
 Native Slack users remain read-only unless their verified Slack user ID is listed under `openclaw.slack.editUserIds`. Edit users approve their own mutations with Slack buttons. The broader `openclaw.slack.allowedUserIds` list controls who may use AI Factory Operations Agent through DMs, group DMs, and channel mentions.
 
-Privileges are attached to separate tools and credentials. Read-only tools and the local and remote diagnostic command allowlist run automatically in View. Mutating Kubernetes, Base Command Manager, and SSH operations are blocked in View, approval-gated in Edit when `hitl: true`, and automatic in Auto. Kubernetes RBAC, request validation, configured SSH hosts, and audit logging apply in every mode.
+Privileges are attached to separate tools and credentials. Read-only infrastructure tools and sandbox-local execution run automatically in View. OpenShell enforces local execution boundaries; the diagnostic command allowlist applies to remote SSH. Mutating Kubernetes, Base Command Manager, and SSH operations are blocked in View, approval-gated in Edit when `hitl: true`, and automatic in Auto. Kubernetes RBAC, request validation, configured SSH hosts, and audit logging apply in every mode.
 
 Read [the AI Factory Operations Agent security model](security_model.md) before enabling Edit or Auto.
 
@@ -501,7 +521,11 @@ If Helm is not already authenticated to NVCR, run the registry login command fro
 The AI Factory Operations Agent UI service also exposes a headless API:
 
 ```bash
-curl -sS http://localhost:3000/api/headless/chat \
+export MOSAIC_URL=http://127.0.0.1:3000
+export MOSAIC_UI_MACHINE_TOKEN="$(kubectl -n mosaic get secret mosaic-ui-auth \
+  -o jsonpath='{.data.machineToken}' | base64 --decode)"
+curl -sS "$MOSAIC_URL/api/headless/chat" \
+  --header @<(printf 'Authorization: Bearer %s\n' "$MOSAIC_UI_MACHINE_TOKEN") \
   -H 'content-type: application/json' \
   -d '{"prompt":"summarize whether the cluster is healthy","sessionKey":"headless"}'
 ```
@@ -530,13 +554,15 @@ claude mcp add mosaic \
   -- ~/.local/bin/mosaic-mcp
 ```
 
-For Codex:
+For Codex, add the following to your user `~/.codex/config.toml`, replacing the command with the absolute installed path:
 
-```bash
-codex mcp add mosaic \
-  --env MOSAIC_URL=http://localhost:3000 \
-  -- ~/.local/bin/mosaic-mcp
+```toml
+[mcp_servers.mosaic]
+command = "/home/USER/.local/bin/mosaic-mcp"
+env_vars = ["MOSAIC_URL", "MOSAIC_UI_MACHINE_TOKEN"]
 ```
+
+Start the MCP client from the shell where `MOSAIC_URL` and `MOSAIC_UI_MACHINE_TOKEN` are exported.
 
 Replace `http://localhost:3000` with the deployed AI Factory Operations Agent URL when it is reachable directly. The bridge exposes `ai_factory_operations_agent_chat`, `ai_factory_operations_agent_history`, `ai_factory_operations_agent_commands`, and the AI Factory Operations Agent/OpenClaw tools enabled by the chart over stdio MCP. See `docs/skills/ai-factory-operations-agent-headless/SKILL.md` for the complete agent workflow.
 

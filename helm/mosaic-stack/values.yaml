@@ -21,6 +21,12 @@ observability:
   grafanaUrl: http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local/grafana
   alertmanagerUrl: http://kube-prometheus-stack-alertmanager.prometheus.svc.cluster.local:9093
   grafanaDatasourceUid: prometheus
+  loki:
+    url: ""
+    tenantId: ""
+    auth:
+      existingSecret: ""
+      authorizationKey: authorization
   grafanaAuth:
     existingSecret: ""
     usernameKey: username
@@ -210,7 +216,7 @@ mosaicUi:
   replicaCount: 1
   image:
     repository: nvcr.io/0948643769302270/afoa-release/mosaic-ui
-    tag: 84523f34
+    tag: 348d4635
     pullPolicy: Always
   deploymentVersion: v0.0.1
   auditPvc:
@@ -227,6 +233,8 @@ mosaicUi:
     machineToken: ""
 openclaw:
   enabled: true
+  # Skill instructions included in every session, without a separate file read.
+  bootstrapSkills: []
   gatewayProtocol: 4
   slack:
     enabled: false

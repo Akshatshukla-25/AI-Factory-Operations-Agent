@@ -119,14 +119,15 @@ test("projects and registers access state in every approval-owning plugin", () =
   }
 });
 
-test("uses fixed tool capabilities with a narrow diagnostic exception", () => {
+test("separates sandbox execution from external tool permissions", () => {
   for (const tool of [
     "write", "edit", "apply_patch",
     "run_kubectl_admin", "bcm_execute_cmsh_admin", "bcm_add_note", "bcm_remove_note",
-    "dashboard_create", "grafana_dashboard_create",
   ]) {
     assert.equal(toolRequiresEdit(tool), true, tool);
   }
+  assert.equal(toolRequiresEdit("dashboard_create"), false);
+  assert.equal(toolRequiresEdit("grafana_dashboard_create"), false);
   assert.equal(toolRequiresEdit("run_kubectl"), false);
   assert.equal(toolRequiresEdit("hardware_analyze_dut"), false);
   assert.equal(toolRequiresEdit("bcm_execute_cmsh"), false);
@@ -134,7 +135,11 @@ test("uses fixed tool capabilities with a narrow diagnostic exception", () => {
   assert.equal(toolRequiresEdit("third_party_delete_cluster"), true);
   assert.equal(toolAccess("third_party_delete_cluster"), "unknown");
   assert.equal(toolRequiresEdit("exec", { command: "nvidia-smi -L" }), false);
-  assert.equal(toolRequiresEdit("exec", { command: "touch /tmp/changed" }), true);
+  for (const params of [
+    { command: "touch /tmp/report" },
+    { command: "printf sample | wc -c", workdir: "/tmp" },
+    { command: "python -c 'print(2 + 3)'", timeout: 30 },
+  ]) assert.equal(toolRequiresEdit("exec", params), false);
   assert.equal(toolRequiresEdit("run_remote_ssh", { host: "node-1", argv: ["ipmitool", "mc", "info"] }), false);
   assert.equal(toolRequiresEdit("run_remote_ssh", { host: "node-1", argv: ["reboot"] }), true);
 });
@@ -149,4 +154,14 @@ test("applies explicit per-server MCP tool access without trusting unknown serve
   assert.equal(toolAccess("mixed__delete"), "edit");
   assert.equal(toolAccess("unconfigured__inspect"), "unknown");
   configureMcpToolPolicies(undefined);
+});
+
+// Dashboard persistence is an observation workflow, not infrastructure mutation.
+test("View permits dashboard authoring while infrastructure changes still require Edit", () => {
+  for (const name of ["dashboard_create", "grafana_dashboard_create"]) {
+    assert.equal(toolRequiresEdit(name), false, name);
+  }
+  for (const name of ["run_kubectl_admin", "bcm_execute_cmsh_admin", "apply_patch"]) {
+    assert.equal(toolRequiresEdit(name), true, name);
+  }
 });

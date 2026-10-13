@@ -38,7 +38,11 @@ const builtinTools = [
 let toolCache;
 
 async function request(path, init) {
-  const response = await fetch(new URL(path, baseUrl), init);
+  const headers = new Headers(init?.headers);
+  if (process.env.MOSAIC_UI_MACHINE_TOKEN) {
+    headers.set("authorization", `Bearer ${process.env.MOSAIC_UI_MACHINE_TOKEN}`);
+  }
+  const response = await fetch(new URL(path, baseUrl), { ...init, headers });
   const text = await response.text();
   let payload;
   try { payload = JSON.parse(text); } catch { payload = { text }; }

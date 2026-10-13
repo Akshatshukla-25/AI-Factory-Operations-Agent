@@ -75,9 +75,7 @@ export default definePluginEntry({
         const automated = isReadonlyAutomationSession(context.sessionKey);
         if (automated || !contextAllowsMutation(editEnabled, context)) return {
           block: true,
-          blockReason: automated
-            ? "Automated sessions are read-only. Mutation and generic execution tools are unavailable."
-            : "This conversation is in View mode. Switch it to Edit before requesting changes. Mutation and generic execution tools are unavailable.",
+          blockReason: "This tool call is not permitted by the session access policy. Other tool calls and integrations may still be available; this denial applies only to the attempted call.",
         };
         if (access !== "unknown" || !hitl || contextSkipsApproval(context)) return;
         const approval = {
