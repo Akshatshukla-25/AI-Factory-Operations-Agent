@@ -31,3 +31,7 @@ pre, .admonition, .search-button { border-radius: 0; }
 @media (max-width: 600px) { #install-command-builder .builder-settings, .builder-modules { grid-template-columns: 1fr; } }
 
 #install-command-builder .builder-settings > label:has(input[type=checkbox]) { flex-direction: row; align-items: center; grid-column: 1 / -1; }
+.builder-sizing { margin: 2rem 0; }
+.builder-sizing table { width: 100%; font-size: inherit; }
+.builder-sizing th, .builder-sizing td { padding: .5rem; text-align: left; border-bottom: 1px solid var(--pst-color-border); }
+.builder-sizing-note { font-size: .85rem; color: var(--pst-color-text-muted); }

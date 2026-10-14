@@ -7,7 +7,7 @@ import {mkdtempSync, mkdirSync, writeFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {buildCommand, enabledModules, modules} from '../../docs/_static/install-builder.mjs';
+import {buildCommand, enabledModules, footprint, modules, quantity, selectedComponents} from '../../docs/_static/install-builder.mjs';
 const chart = fileURLToPath(new URL('../../helm/mosaic-stack', import.meta.url));
 function argumentsFor(state) {
   const shell = `trap '[ -z "\${MOSAIC_CHART_WORKDIR:-}" ] || rm -rf "$MOSAIC_CHART_WORKDIR"' EXIT; helm() { if [ "$1" = pull ]; then ln -s '${chart}' "$MOSAIC_CHART_WORKDIR/mosaic-stack"; else printf '%s\\0' "$@"; fi; };\n${buildCommand(state)}\nprintf '%s\\0' "\${MOSAIC_CHART_WORKDIR:-}"`;
@@ -104,4 +104,54 @@ test('each observability service is independently selectable and clears other en
     }
   }
   assert.ok(argumentsFor({...example,modules:[]}).includes('modules.observability.enabled=false'));
+});
+test('Kubernetes quantities preserve decimal and binary units', () => {
+  assert.equal(quantity('250m', 'cpu'), .25);
+  assert.equal(quantity('2Gi', 'memory'), 2 * 1024 ** 3);
+  assert.equal(quantity('500M', 'memory'), 500000000);
+  assert.throws(() => quantity('2invalid', 'memory'));
+});
+
+test('pod scheduling footprint sums app containers and takes init peak before replicas', () => {
+  for (const cores of [1, 3, 5]) {
+    const container = cpu => ({resources: {requests: {cpu: String(cpu)}}});
+    const component = {count: 2, containers: [container(cores), container(cores)], initContainers: [container(cores * 3)]};
+    assert.equal(footprint(component, 'requests', 'cpu'), cores * 6);
+  }
+});
+
+test('selection deduplicates dependencies and merges shared workload init containers', () => {
+  const base = {kind: 'Deployment', containers: [{name: 'runtime', resources: {}}], initContainers: [], count: 1};
+  const catalog = {base: {runtime: base}, variants: {
+    bcm: {runtime: {...base, initContainers: [{name: 'adapter', resources: {}}]}, adapter: {name: 'adapter'}},
+    diagnostics: {runtime: {...base, initContainers: [{name: 'diagnostics', resources: {}}]}, adapter: {name: 'adapter'}},
+  }};
+  const components = selectedComponents(catalog, {inference: 'external', sandboxInstalled: true}, new Set(['bcm', 'diagnostics']));
+  assert.equal(components.length, 2);
+  assert.equal(components[0].initContainers.length, 2);
+  assert.equal(components[0].containers.length, 1);
+});
+
+test('composed footprints match direct Helm renders across inference and module selections', () => {
+  const script = `import sys,json
+sys.path.insert(0,'docs')
+from conf import generate,render_footprint,MODULES
+catalog=generate()
+cases=[]
+for inference in ['external','super','ultra']:
+ for backend in ['bcm','vanilla']:
+  for modules in [[module] for module in MODULES] + [MODULES, MODULES[::2], MODULES[1::2]]:
+   state={'inference':inference,'modules':modules,'slurmBackend':backend,'baseUrl':'https://inference.example.com/v1','model':'served-model','bcmHead':'head.example.com','evidenceRoot':'/slurm','evidenceNode':'collector-node','corpus':'/corpus'}
+   cases.append({'state':state,'components':list(render_footprint(state).values())})
+print(json.dumps({'catalog':catalog,'cases':cases}))`;
+  const result = spawnSync('uv', ['run', '--project', 'docs', '--locked', 'python', '-c', script], {cwd: fileURLToPath(new URL('../../', import.meta.url)), encoding: 'utf8', maxBuffer: 8 * 1024 * 1024});
+  assert.equal(result.status, 0, result.stderr);
+  const {catalog, cases} = JSON.parse(result.stdout);
+  assert.deepEqual(Object.keys(catalog.variants).filter(name => !['sandbox', 'super', 'ultra', 'slurm-vanilla'].includes(name)).sort(),
+    [...enabledModules({modules: Object.keys(modules)})].sort());
+  const normalize = components => Object.fromEntries(components.map(component => [`${component.kind}/${component.name}`, {...component,
+    containers: [...(component.containers || [])].sort((left, right) => left.name.localeCompare(right.name)),
+    initContainers: [...(component.initContainers || [])].sort((left, right) => left.name.localeCompare(right.name)),
+  }]));
+  for (const {state, components} of cases) assert.deepEqual(normalize(selectedComponents(catalog, state, enabledModules(state))), normalize(components));
 });

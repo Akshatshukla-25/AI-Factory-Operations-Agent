@@ -123,7 +123,13 @@ if (root) {
   const copy = document.createElement('button'); copy.type = 'button'; copy.textContent = 'Copy command';
   const status = document.createElement('span'); status.setAttribute('role', 'status');
   copy.addEventListener('click', async () => {try {await navigator.clipboard.writeText(code.textContent); status.textContent = 'Copied';} catch {status.textContent = 'Select the command text to copy it.';}});
-  root.replaceChildren(form, heading, copy, status, output);
+  const sizing = document.createElement('section'); sizing.className = 'builder-sizing';
+  let catalog;
+  root.replaceChildren(form, heading, copy, status, output, sizing);
+  fetch(new URL('sizing-data.json', import.meta.url)).then(response => {
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+  }).then(data => {catalog = data; update(false);}).catch(error => {sizing.textContent = `Deployment footprint unavailable: ${error.message}`;});
   function update(renderSettings) {
     const enabled = enabledModules(state);
     for (const [name, input] of inputs) {input.checked = enabled.has(name); input.disabled = enabled.has(name) && !state.modules.includes(name);}
@@ -158,6 +164,70 @@ if (root) {
     if (enabled.has('research')) notes.push('Create iraop-secrets with NVIDIA_API_KEY, NVIDIA_CHAT_API_KEY and IRAOP_API_KEY; prepare the corpus directory.');
     if (state.inference !== 'external') notes.push('Verify GPU, memory and model cache requirements in the on-prem inference section.');
     prerequisites.textContent = notes.join(' '); code.textContent = buildCommand(state); status.textContent = '';
+    if (catalog) renderSizing(sizing, catalog, state, enabled);
   }
   update(true);
+}
+export function selectedComponents(catalog, state, enabled) {
+  const selections = [...enabled].filter(name => name !== 'slurm');
+  if (enabled.has('slurm')) selections.push(state.slurmBackend === 'vanilla' ? 'slurm-vanilla' : 'slurm');
+  if (!state.sandboxInstalled) selections.push('sandbox');
+  if (state.inference !== 'external') selections.push(state.inference);
+  const components = {};
+  for (const group of [catalog.base, ...selections.map(name => catalog.variants[name])]) {
+    for (const [key, component] of Object.entries(group)) {
+      const previous = components[key];
+      components[key] = {...component};
+      for (const field of ['containers', 'initContainers']) {
+        if (component[field]) components[key][field] = Object.values(Object.fromEntries([...(previous?.[field] || []), ...component[field]].map(container => [container.name, container])));
+      }
+    }
+  }
+  return Object.values(components);
+}
+
+export function quantity(value, resource) {
+  const match = String(value).match(/^([0-9.]+)([a-zA-Z]*)$/);
+  if (!match) throw new Error(`Unsupported resource quantity: ${value}`);
+  const factors = resource === 'cpu' ? {'': 1, m: .001, u: .000001, n: .000000001} : {'': 1, Ki: 1024, Mi: 1024 ** 2, Gi: 1024 ** 3, Ti: 1024 ** 4, k: 1000, M: 1000 ** 2, G: 1000 ** 3, T: 1000 ** 4};
+  if (!(match[2] in factors)) throw new Error(`Unsupported resource unit: ${match[2]}`);
+  return Number(match[1]) * factors[match[2]];
+}
+
+export function footprint(component, field, resource) {
+  const amount = container => quantity(container.resources[field]?.[resource] || 0, resource);
+  const running = (component.containers || []).reduce((sum, container) => sum + amount(container), 0);
+  const initializing = Math.max(0, ...(component.initContainers || []).map(amount));
+  return Math.max(running, initializing) * component.count;
+}
+
+export function renderSizing(panel, catalog, state, enabled) {
+  panel.replaceChildren();
+  const title = document.createElement('h3'); title.textContent = 'Server resources';
+  const components = selectedComponents(catalog, state, enabled);
+  const fixed = components.filter(component => ['Deployment', 'StatefulSet', 'Sandbox'].includes(component.kind));
+  const total = resource => fixed.reduce((sum, component) => sum + footprint(component, 'requests', resource), 0);
+  const format = (amount, resource) => resource === 'memory' ? `${Number((amount / 1024 ** 3).toFixed(3))} GiB` : `${Number(amount.toFixed(3))}`;
+  const storage = components.reduce((sum, component) => {
+    const volumes = typeof component.storage === 'string' ? [component.storage] : component.storage || [];
+    return sum + volumes.reduce((amount, value) => amount + quantity(value, 'memory'), 0) * component.count;
+  }, 0);
+  const resources = document.createElement('table');
+  const header = resources.createTHead().insertRow();
+  const row = resources.createTBody().insertRow();
+  for (const [label, value] of [
+    ['CPU', `≥ ${format(total('cpu'), 'cpu')} cores`],
+    ['RAM', `≥ ${format(total('memory'), 'memory')}`],
+    ['GPUs', format(total('nvidia.com/gpu'), 'nvidia.com/gpu')],
+    ['Disk', format(storage, 'memory')],
+  ]) {
+    const name = document.createElement('th'); name.scope = 'col'; name.textContent = label;
+    header.append(name); row.insertCell().textContent = value;
+  }
+  const note = document.createElement('p'); note.className = 'builder-sizing-note';
+  note.textContent = 'Configured minimums for this chart. Allow extra capacity for concurrency and services without declared resources; existing services and per-node collectors are excluded.';
+  if (state.inference === 'external') note.textContent += ' Inference runs on your existing endpoint.';
+  else note.textContent += ' Model GPUs must fit on one compatible node.';
+  if (enabled.has('research') && !catalog.researchAvailable) note.textContent += ' Research resources are excluded from this build.';
+  panel.append(title, resources, note);
 }

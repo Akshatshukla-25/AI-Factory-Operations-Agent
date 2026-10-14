@@ -28,9 +28,9 @@ The vendored files retain source-level SPDX copyright and license identifiers. N
 
 ## Documentation Build Dependencies
 
-The documentation build uses Sphinx 9.1.0 (BSD-2-Clause), NVIDIA Sphinx Theme 0.0.9.post1 (NVIDIA License Agreement), MyST Parser 5.1.0 (MIT), Sphinx Copybutton 0.5.2 (MIT), and PyData Sphinx Theme 0.22.0 (BSD-3-Clause). Dependencies are resolved in `docs/uv.lock`. The generated site preserves their license texts and bundled JavaScript notices in `docs/_static/third-party-licenses.txt`.
+The documentation build uses Sphinx 9.1.0 (BSD-2-Clause), NVIDIA Sphinx Theme 0.0.9.post1 (NVIDIA License Agreement), MyST Parser 5.1.0 (MIT), Sphinx Copybutton 0.5.2 (MIT), PyData Sphinx Theme 0.22.0 (BSD-3-Clause), and PyYAML 6.0.3 (MIT) to parse rendered Helm manifests for installation sizing. Dependencies are resolved in `docs/uv.lock`. The generated site preserves their license texts and bundled JavaScript notices in `docs/_static/third-party-licenses.txt`.
 
-Sources: https://www.sphinx-doc.org/, https://pypi.org/project/nvidia-sphinx-theme/, https://github.com/executablebooks/MyST-Parser, https://github.com/executablebooks/sphinx-copybutton, https://github.com/pydata/pydata-sphinx-theme.
+Sources: https://www.sphinx-doc.org/, https://pypi.org/project/nvidia-sphinx-theme/, https://github.com/executablebooks/MyST-Parser, https://github.com/executablebooks/sphinx-copybutton, https://github.com/pydata/pydata-sphinx-theme, https://github.com/yaml/pyyaml.
 
 ## Container Image Scope
 
