@@ -95,9 +95,9 @@ The bundled agent stack vLLM profiles require GPUs in the same cluster as the ag
 - An existing `k8s-user` cluster with compatible GPUs, the NVIDIA device plugin, and the `nvidia` RuntimeClass. Set `runtimeClassName` to the runtime configured at your site, or an empty string when the default runtime supports GPUs.
 - Capacity for the default Nemotron Super profile: one compatible GPU, 8 CPUs and 64 GiB requested host memory, and a 500 GiB persistent model cache. Check GPU memory, architecture, driver, and runtime compatibility against the [model card](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4). A single GPU resource does not guarantee that the model fits. Shared-memory usage counts toward the container's memory limit.
 - A default StorageClass, or an explicit `modelCache.storageClassName`, supporting a 500 GiB ReadWriteOnce volume.
-- Access to the pinned vLLM image and model weights. For restricted downloads, configure `modelToken.existingSecret` separately. Airgapped sites must provide an approved image mirror and a populated model cache.
+- Access to the pinned vLLM image and model weights. For restricted downloads, configure `modelToken.existingSecret` separately. Airgapped sites must provide an image mirror and a populated model cache.
 - An internal ingress controller in `k8s-user`, internal DNS resolving its endpoint from `k8s-admin`, and a TLS Secret in the inference namespace. For a site CA, store its certificate in an admin-namespace Secret and set `llm.external.caCertificateSecret` (key `ca.crt`, configurable with `caCertificateKey`). The agent and compatibility proxy add this CA to their normal trust stores. Routing and firewall rules must allow admin-cluster pods to reach the endpoint on port 443. Configure the ingress controller's HTTPS redirect and streaming timeouts for your environment; the chart does not install a controller or create certificates.
-- Permission to create this new release and namespace under your site's scheduling and admission policies. In Run:ai-managed environments, confirm the namespace's GPU quota and workload policy. The example does not configure Run:ai projects or scheduler integration.
+- In Run:ai-managed environments, ensure the target namespace has sufficient GPU quota.
 
 ### Deploy inference in `k8s-user`
 
@@ -174,7 +174,7 @@ Do not use the user-cluster Service's `*.svc.cluster.local` name across clusters
 
 For a new agent installation, continue with the existing [agent installation flow](#install-the-agent), using these variables and the inference key. That guide stores the provider key in the admin cluster and installs with `llm.mode=external`. “External” identifies an endpoint outside the agent release and includes self-hosted inference.
 
-For an existing installation, update only its provider settings, retaining enabled modules and site configuration. Obtain approval for the target namespace and the switch before upgrading an installation others may be using. Use the same chart version already installed, or the explicitly selected upgrade version. `AGENT_CHART_VERSION` below must be set to that version; `AGENT_CHART` is the chart reference from the NMC guide.
+For an existing installation, update only its provider settings, retaining enabled modules and site configuration. Use the same chart version already installed, or the explicitly selected upgrade version. `AGENT_CHART_VERSION` below must be set to that version; `AGENT_CHART` is the chart reference from the NMC guide.
 
 First check the new endpoint from the existing agent pod, streaming the self-hosted key through stdin without changing its configuration:
 
