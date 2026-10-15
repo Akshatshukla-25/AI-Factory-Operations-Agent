@@ -202,7 +202,7 @@ All module changes below update an existing AI Factory Operations Agent release 
 
 ### Observability
 
-To connect AI Factory Operations Agent to an existing Prometheus service, run:
+To connect AI Factory Operations Agent to an existing Prometheus-compatible metrics service, run:
 
 ```bash
 export PROMETHEUS_URL='http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090'
@@ -215,6 +215,8 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --wait \
   --timeout 12m
 ```
+
+VictoriaMetrics uses the same endpoint setting. See [VictoriaMetrics metrics and dashboards](victoriametrics.md) for single-node and cluster URLs and native Grafana datasource configuration.
 
 ### Read-only Loki logs
 
