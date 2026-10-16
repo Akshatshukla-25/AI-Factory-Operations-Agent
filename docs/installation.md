@@ -202,7 +202,19 @@ All module changes below update an existing AI Factory Operations Agent release 
 
 ### Observability
 
-To connect AI Factory Operations Agent to an existing Prometheus-compatible metrics service, run:
+Connect to an existing Prometheus or VictoriaMetrics service with
+`observability.prometheusUrl`. Choose the query base URL for your backend:
+
+| Backend | Example base URL |
+| --- | --- |
+| Prometheus | `http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090` |
+| Single-node VictoriaMetrics | `http://victoriametrics.monitoring.svc.cluster.local:8428` |
+| VictoriaMetrics cluster | `http://vmselect.monitoring.svc.cluster.local:8481/select/0/prometheus` |
+
+For a VictoriaMetrics cluster, replace `0` with the intended tenant ID and use
+`vmselect`. Include any proxy prefix and omit `/api/v1`; the tools append API
+paths themselves. See the [VictoriaMetrics API examples](https://docs.victoriametrics.com/url-examples.html).
+Set `PROMETHEUS_URL` to your chosen endpoint, then run:
 
 ```bash
 export PROMETHEUS_URL='http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090'
@@ -216,7 +228,13 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
-VictoriaMetrics uses the same endpoint setting. See [VictoriaMetrics metrics and dashboards](victoriametrics.md) for single-node and cluster URLs and native Grafana datasource configuration.
+The endpoint must be reachable from the agent pod. Grafana credentials authenticate
+Grafana requests, not direct metrics queries. Keep credentials out of URLs and
+committed values. Mosaic connects to your metrics backend; it does not install it.
+
+Verify access by asking Mosaic to list metric names, query a discovered metric,
+and show its history for the past hour. VictoriaMetrics also supports MetricsQL;
+see its [PromQL differences and extensions](https://docs.victoriametrics.com/victoriametrics/metricsql/).
 
 ### Read-only Loki logs
 
@@ -262,6 +280,7 @@ To connect AI Factory Operations Agent to an existing Grafana service, run:
 ```bash
 export GRAFANA_URL='http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local/grafana'
 export GRAFANA_DATASOURCE_UID='prometheus'
+export GRAFANA_DATASOURCE_TYPE='prometheus'
 export GRAFANA_USERNAME='admin'
 read -rsp 'Grafana password: ' GRAFANA_PASSWORD; echo
 
@@ -277,6 +296,7 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --set modules.grafana.enabled=true \
   --set-string observability.grafanaUrl="$GRAFANA_URL" \
   --set-string observability.grafanaDatasourceUid="$GRAFANA_DATASOURCE_UID" \
+  --set-string observability.grafanaDatasourceType="$GRAFANA_DATASOURCE_TYPE" \
   --set observability.grafanaAuth.existingSecret=mosaic-grafana-auth \
   --wait \
   --timeout 12m
@@ -285,6 +305,19 @@ unset GRAFANA_PASSWORD
 ```
 
 `grafanaUrl` includes Grafana's configured serving path. Use the service root for a root-served Grafana or `/grafana` for the NMC deployment.
+
+Use the datasource's actual UID. For VictoriaMetrics, configure Grafana to use the
+same backend and tenant as `observability.prometheusUrl`. Grafana's Prometheus
+datasource works with the default `GRAFANA_DATASOURCE_TYPE=prometheus`. For the
+[native VictoriaMetrics plugin](https://docs.victoriametrics.com/victoriametrics/integrations/grafana/datasource/),
+have the Grafana administrator install and configure it, then set
+`GRAFANA_DATASOURCE_TYPE=victoriametrics-metrics-datasource` before running the
+commands above.
+
+Ask Mosaic to discover Grafana datasources before creating a dashboard. It
+preserves the selected UID and type in panels and query validation. An explicit
+panel datasource overrides the configured default, and Loki panels can share a
+dashboard with either metrics datasource type.
 
 ### Terminal
 
