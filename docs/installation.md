@@ -211,10 +211,8 @@ Connect to an existing Prometheus or VictoriaMetrics service with
 | Single-node VictoriaMetrics | `http://victoriametrics.monitoring.svc.cluster.local:8428` |
 | VictoriaMetrics cluster | `http://vmselect.monitoring.svc.cluster.local:8481/select/0/prometheus` |
 
-For a VictoriaMetrics cluster, replace `0` with the intended tenant ID and use
-`vmselect`. Include any proxy prefix and omit `/api/v1`; the tools append API
-paths themselves. See the [VictoriaMetrics API examples](https://docs.victoriametrics.com/url-examples.html).
-Set `PROMETHEUS_URL` to your chosen endpoint, then run:
+Replace `0` with your tenant ID for a VictoriaMetrics cluster. Include any proxy
+prefix and omit `/api/v1`. Set `PROMETHEUS_URL` to your endpoint:
 
 ```bash
 export PROMETHEUS_URL='http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090'
@@ -227,10 +225,6 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --wait \
   --timeout 12m
 ```
-
-The endpoint must be reachable from the agent pod. Grafana credentials authenticate
-Grafana requests, not direct metrics queries. Keep credentials out of URLs and
-committed values. Mosaic connects to your metrics backend; it does not install it.
 
 ### Read-only Loki logs
 
@@ -302,11 +296,10 @@ unset GRAFANA_PASSWORD
 
 `grafanaUrl` includes Grafana's configured serving path. Use the service root for a root-served Grafana or `/grafana` for the NMC deployment.
 
-For Grafana's [native VictoriaMetrics plugin](https://docs.victoriametrics.com/victoriametrics/integrations/grafana/datasource/),
-set `GRAFANA_DATASOURCE_UID` to the configured datasource UID and
-`GRAFANA_DATASOURCE_TYPE=victoriametrics-metrics-datasource` in the commands above.
-The plugin must already be installed in Grafana. A Prometheus datasource pointing
-to VictoriaMetrics uses the default type, `prometheus`.
+For an installed [native VictoriaMetrics datasource](https://docs.victoriametrics.com/victoriametrics/integrations/grafana/datasource/),
+set `GRAFANA_DATASOURCE_UID` to its UID and
+`GRAFANA_DATASOURCE_TYPE=victoriametrics-metrics-datasource`.
+For a Prometheus datasource, keep `prometheus`.
 
 ### Terminal
 
