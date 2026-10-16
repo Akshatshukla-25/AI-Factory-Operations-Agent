@@ -93,7 +93,7 @@ export function buildCommand(state) {
 
 const root = typeof document === 'undefined' ? null : document.querySelector('#install-command-builder');
 if (root) {
-  const state = {inference: 'external', channel: 'devel', slurmBackend: 'bcm', modules: ['kubernetes']};
+  const state = {inference: 'external', channel: 'devel', slurmBackend: 'bcm', grafanaType: 'prometheus', modules: ['kubernetes']};
   const form = document.createElement('form'); form.addEventListener('submit', event => event.preventDefault());
   const options = document.createElement('fieldset'); options.innerHTML = '<legend>Installation options</legend>';
   function select(key, label, choices) {
@@ -147,6 +147,10 @@ if (root) {
       if (enabled.has('slurm') && state.slurmBackend === 'vanilla') keys.push('evidenceRoot', 'evidenceNode');
       if (enabled.has('research')) keys.push('corpus');
       for (const key of keys) {
+        if (key === 'grafanaType') {
+          settingsBody.append(select(key, fields[key][0], [['prometheus', 'Prometheus'], ['victoriametrics-metrics-datasource', 'VictoriaMetrics (native plugin)']]));
+          continue;
+        }
         const [label, initial, placeholder] = fields[key]; const wrapper = document.createElement('label'); wrapper.textContent = label;
         const input = document.createElement('input'); input.name = key; input.value = state[key] ?? initial; input.placeholder = placeholder || '';
         input.addEventListener('input', () => {state[key] = input.value; update(false);}); wrapper.append(input); settingsBody.append(wrapper);
