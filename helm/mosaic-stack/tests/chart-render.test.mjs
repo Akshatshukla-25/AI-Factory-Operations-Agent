@@ -1084,7 +1084,7 @@ test("preloads selected skill instructions from their authoritative files", () =
   }
 });
 
-test("packaged GPU documentation installs locally with research and UI disabled", () => {
+test("packaged product and GPU documentation installs locally with research, UI and BCM disabled", () => {
   const directory = mkdtempSync(join(tmpdir(), "skill-offline-"));
   try {
     execFileSync("helm", ["package", chart, "--destination", directory]);
@@ -1098,6 +1098,13 @@ test("packaged GPU documentation installs locally with research and UI disabled"
     const home = join(directory, "home");
     execFileSync("mkdir", ["-p", seed, home]);
     const seedSection = output.split("name: openclaw-seed\n")[1].split("\n---")[0];
+    const binaryData = seedSection.split("binaryData:\n")[1].split("\ndata:")[0];
+    for (const line of binaryData.trim().split("\n")) {
+      const [name, encoded] = line.trim().split(": ");
+      writeFileSync(join(seed, name), Buffer.from(JSON.parse(encoded), "base64"));
+    }
+    execFileSync("mkdir", ["-p", join(home, "workspace/docs")]);
+    writeFileSync(join(home, "workspace/docs/existing-manual.md"), "Existing manual");
     for (const line of seedSection.split("\n")) {
       if (line.startsWith("  ") && !line.startsWith("   ") && line.endsWith(": |-")) {
         const key = line.trim().slice(0, -4);
@@ -1109,6 +1116,16 @@ test("packaged GPU documentation installs locally with research and UI disabled"
       .map(line => line.slice(14)).join("\n")
       .replaceAll("/home/node/.openclaw", home).replaceAll("/seed/", `${seed}/`);
     execFileSync("sh", ["-eu", "-c", script]);
+    const documentation = join(home, "workspace/skills/agent-documentation");
+    const root = join(chart, "../..");
+    const sources = execFileSync("git", ["ls-files", "-z", "README.md", "docs"], {cwd: root, encoding: "utf8"})
+      .split("\0").filter(name => name.endsWith(".md"));
+    for (const source of sources) {
+      assert.deepEqual(readFileSync(join(documentation, "docs", source)), readFileSync(join(root, source)));
+    }
+    assert.ok(readFileSync(join(documentation, "SKILL.md"), "utf8").startsWith("---\n"));
+    assert.equal(JSON.parse(readFileSync(join(documentation, "deployment.json"), "utf8")).modules.kubernetes, false);
+    assert.equal(readFileSync(join(home, "workspace/docs/existing-manual.md"), "utf8"), "Existing manual");
     const relative = "skills/gpu-networking";
     const workspace = join(home, "workspace");
     const references = join(workspace, relative, "references");
@@ -1153,4 +1170,21 @@ test("configures optional Loki access without exposing its credential to UI or s
   assert.doesNotMatch(disabled, /name: MOSAIC_LOKI_AUTHORIZATION/);
   const defaults = render("--show-only", "templates/openclaw.yaml");
   assert.doesNotMatch(defaults, /name: MOSAIC_LOKI_AUTHORIZATION/);
+});
+
+test("deployment reference reflects module settings without exporting credentials", () => {
+  for (const enabled of [true, false]) {
+    const seed = render("--set", `modules.kubernetes.enabled=${enabled}`,
+      "--set-string", "observability.grafanaAuth.existingSecret=private-secret-ref",
+      "--set-string", "modules.research.secrets.nvidiaApiKey=private-test-value",
+      "--show-only", "templates/openclaw-seed-configmap.yaml");
+    const text = configMapBlock(seed, "agent-deployment.json");
+    const profile = JSON.parse(text);
+    assert.equal(profile.modules.kubernetes, enabled);
+    assert.equal(profile.namespace, "mosaic-test");
+    assert.deepEqual(profile.kubernetesClusters, ["local"]);
+    assert.equal(text.includes("private-secret-ref"), false);
+    assert.equal(text.includes("private-test-value"), false);
+    assert.ok(Buffer.byteLength(seed) < 1048576);
+  }
 });

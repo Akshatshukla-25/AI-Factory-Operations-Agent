@@ -23,3 +23,19 @@ The footprint catalog is generated during each HTML build by rendering the track
 The documentation workflow builds pull requests without publishing. After a change lands on `main`, it publishes the generated static site to GitHub Pages using the `github-pages` environment. A repository administrator must first enable **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 
 The intended URL is `https://nvidia.github.io/AI-Factory-Operations-Agent/`. Until Pages is enabled and a deployment succeeds, that URL will not serve the documentation. No registry or inference credentials are needed for the documentation build.
+
+## Agent reference bundle
+
+The Helm chart also includes the tracked product Markdown for the agent to read
+inside its sandbox, alongside any Base Command Manager manuals. After editing
+`README.md` or Markdown under `docs/`, refresh the bundle before packaging the chart:
+
+```bash
+uv run --no-project docs/package_agent_docs.py
+```
+
+CI checks that the bundle matches its sources. Startup stages it under the agent
+workspace's `skills/agent-documentation/docs`, with a deployment profile containing
+module enablement and registered cluster names. Credentials are excluded from that
+profile. The current tool catalog and live tool results remain authoritative for
+capabilities and infrastructure state.

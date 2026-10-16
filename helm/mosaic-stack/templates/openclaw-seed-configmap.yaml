@@ -8,7 +8,24 @@ metadata:
   name: openclaw-seed
   labels:
     {{- include "mosaic-stack.labels" . | nindent 4 }}
+binaryData:
+  agent-documentation.tar.gz: {{ required "Packaged agent documentation is missing" (.Files.Get "files/agent-documentation.tar.gz") | b64enc | quote }}
 data:
+  agent-documentation.SKILL.md: |-
+{{ .Files.Get "files/openclaw-seed/skills/agent-documentation/SKILL.md" | indent 4 }}
+  agent-deployment.json: |-
+    {
+      "release": {{ .Release.Name | quote }},
+      "namespace": {{ .Release.Namespace | quote }},
+      "chartVersion": {{ .Chart.Version | quote }},
+      "modules": {
+        {{- range $name, $module := .Values.modules }}
+        {{ $name | quote }}: {{ $module.enabled }},
+        {{- end }}
+        "bcmConfigured": {{ eq (include "mosaic-stack.bcmEnabled" .) "true" }}
+      },
+      "kubernetesClusters": {{ keys (include "mosaic-stack.kubernetesClusters" . | fromJson) | sortAlpha | toJson }}
+    }
   openclaw.json: |-
 {{ tpl (.Files.Get "files/openclaw-seed/nemoclaw.json") . | indent 4 }}
   gpu-networking.SKILL.md: |-
