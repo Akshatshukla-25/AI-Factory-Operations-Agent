@@ -232,10 +232,6 @@ The endpoint must be reachable from the agent pod. Grafana credentials authentic
 Grafana requests, not direct metrics queries. Keep credentials out of URLs and
 committed values. Mosaic connects to your metrics backend; it does not install it.
 
-Verify access by asking Mosaic to list metric names, query a discovered metric,
-and show its history for the past hour. VictoriaMetrics also supports MetricsQL;
-see its [PromQL differences and extensions](https://docs.victoriametrics.com/victoriametrics/metricsql/).
-
 ### Read-only Loki logs
 
 To connect Mosaic to an existing Loki service, run:
@@ -306,18 +302,11 @@ unset GRAFANA_PASSWORD
 
 `grafanaUrl` includes Grafana's configured serving path. Use the service root for a root-served Grafana or `/grafana` for the NMC deployment.
 
-Use the datasource's actual UID. For VictoriaMetrics, configure Grafana to use the
-same backend and tenant as `observability.prometheusUrl`. Grafana's Prometheus
-datasource works with the default `GRAFANA_DATASOURCE_TYPE=prometheus`. For the
-[native VictoriaMetrics plugin](https://docs.victoriametrics.com/victoriametrics/integrations/grafana/datasource/),
-have the Grafana administrator install and configure it, then set
-`GRAFANA_DATASOURCE_TYPE=victoriametrics-metrics-datasource` before running the
-commands above.
-
-Ask Mosaic to discover Grafana datasources before creating a dashboard. It
-preserves the selected UID and type in panels and query validation. An explicit
-panel datasource overrides the configured default, and Loki panels can share a
-dashboard with either metrics datasource type.
+For Grafana's [native VictoriaMetrics plugin](https://docs.victoriametrics.com/victoriametrics/integrations/grafana/datasource/),
+set `GRAFANA_DATASOURCE_UID` to the configured datasource UID and
+`GRAFANA_DATASOURCE_TYPE=victoriametrics-metrics-datasource` in the commands above.
+The plugin must already be installed in Grafana. A Prometheus datasource pointing
+to VictoriaMetrics uses the default type, `prometheus`.
 
 ### Terminal
 
