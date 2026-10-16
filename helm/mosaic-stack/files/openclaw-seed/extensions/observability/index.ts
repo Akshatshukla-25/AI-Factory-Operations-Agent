@@ -167,7 +167,7 @@ async function queryRange(baseUrl: string, promql: string, rawParams: Record<str
 export default definePluginEntry({
   id: "observability",
   name: "Observability",
-  description: "Read-only Prometheus and Grafana tools for cluster observability.",
+  description: "Read-only Prometheus-compatible metrics and Grafana tools for cluster observability.",
   register(api) {
     registerGrafanaTools(api);
 
@@ -184,7 +184,7 @@ export default definePluginEntry({
     registerTool({
       name: "observability_metric_names",
       label: "Observability Metric Names",
-      description: "List available Prometheus metric names, optionally filtered by substring or regular expression.",
+      description: "List available Prometheus or VictoriaMetrics metric names, optionally filtered by substring or regular expression.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -213,14 +213,14 @@ export default definePluginEntry({
 
     registerTool({
       name: "observability_query",
-      label: "Prometheus Instant Query",
-      description: "Run a read-only instant PromQL query against observability Prometheus.",
+      label: "Metrics Instant Query",
+      description: "Run a read-only instant PromQL or MetricsQL query against the configured metrics service.",
       parameters: {
         type: "object",
         additionalProperties: false,
         required: ["query"],
         properties: {
-          query: { type: "string", description: "PromQL instant query." },
+          query: { type: "string", description: "PromQL or MetricsQL instant query supported by the configured backend." },
           time: { type: "string", description: "Optional RFC3339 or Unix timestamp." },
           maxSeries: { type: "number", description: "Maximum returned series." },
         },
@@ -240,14 +240,14 @@ export default definePluginEntry({
 
     registerTool({
       name: "observability_range_query",
-      label: "Prometheus Range Query",
-      description: "Run a historical PromQL range query.",
+      label: "Metrics Range Query",
+      description: "Run a historical PromQL or MetricsQL range query.",
       parameters: {
         type: "object",
         additionalProperties: false,
         required: ["query"],
         properties: {
-          query: { type: "string", description: "PromQL range query." },
+          query: { type: "string", description: "PromQL or MetricsQL range query supported by the configured backend." },
           rangeMinutes: { type: "number", description: "Lookback window in minutes. Default 60." },
           stepSeconds: { type: "number", description: "Prometheus step in seconds. Default 60." },
           start: { type: "string", description: "Optional explicit start time." },

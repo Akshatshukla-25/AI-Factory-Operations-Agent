@@ -155,3 +155,9 @@ print(json.dumps({'catalog':catalog,'cases':cases}))`;
   }]));
   for (const {state, components} of cases) assert.deepEqual(normalize(selectedComponents(catalog, state, enabledModules(state))), normalize(components));
 });
+
+for (const grafanaType of [undefined, 'victoriametrics-metrics-datasource']) test(`Grafana datasource type preserves the default or configured selection: ${grafanaType}`, () => {
+  const args = argumentsFor({...example, modules:['grafana'], grafanaType, grafanaUid:'metrics'});
+  assert.ok(args.includes(`observability.grafanaDatasourceType=${grafanaType || 'prometheus'}`));
+  assert.ok(args.includes('observability.grafanaDatasourceUid=metrics'));
+});

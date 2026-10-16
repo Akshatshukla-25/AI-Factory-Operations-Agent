@@ -11,9 +11,9 @@ const hooks=registerHooks({resolve(s,c,next){return s==='openclaw/plugin-sdk/plu
 const {default:plugin}=await import('../files/openclaw-seed/extensions/grafana/index.ts');
 hooks.deregister();
 for(const [register,name] of [[registerGrafanaTools,'dashboard_create'],[plugin.register,'grafana_dashboard_create']]) {
- test(`${name} routes mixed panels to their datasources and rejects failed validation`,async t=>{
+ for (const metricsType of ['prometheus', 'victoriametrics-metrics-datasource']) test(`${name} (${metricsType}) routes mixed panels to their datasources and rejects failed validation`,async t=>{
   const saved=[];const queries=[];let fail=false;let empty=false;
-  const sources=[{uid:'metrics-test',type:'prometheus',name:'Metrics'},{uid:'logs-test',type:'loki',name:'Logs'}];
+  const sources=[{uid:'metrics-test',type:metricsType,name:'Metrics'},{uid:'logs-test',type:'loki',name:'Logs'}];
   const server=createServer(async(req,res)=>{
    let body='';for await(const part of req)body+=part;
    const data=body?JSON.parse(body):{};
@@ -30,13 +30,13 @@ for(const [register,name] of [[registerGrafanaTools,'dashboard_create'],[plugin.
   }).listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
   t.after(()=>{server.closeAllConnections();server.close()});
   const url=`http://127.0.0.1:${server.address().port}`;
-  const tools={};register({pluginConfig:{grafanaEnabled:true,grafanaUrl:url+'/monitoring',prometheusUrl:url,uiUrl:url,datasourceUid:'metrics-test'},registerTool:x=>tools[x.name]=x});
+  const tools={};register({pluginConfig:{grafanaEnabled:true,grafanaUrl:url+'/monitoring',prometheusUrl:url,uiUrl:url,datasourceUid:'metrics-test',...(metricsType === 'prometheus' ? {} : {datasourceType:metricsType})},registerTool:x=>tools[x.name]=x});
   const panels=[{title:'Health',query:'up',visualization:'stat'},{title:'Events',query:'{service="example"}',visualization:'logs',datasource:{uid:'logs-test',type:'loki'}}];
   const result=await tools[name].execute('test',{title:'Correlation',panels,openInUi:false});
   assert.equal(result.details.created,true);
   assert.ok(result.details.iframeUrl.startsWith('/api/grafana/proxy/d/test-board?'));
   assert.equal(result.details.dashboardUrl,url+'/monitoring/d/test-board');
-  assert.deepEqual(saved[0].panels.map(p=>p.datasource),[{type:'prometheus',uid:'metrics-test'},{type:'loki',uid:'logs-test'}]);
+  assert.deepEqual(saved[0].panels.map(p=>p.datasource),[{type:metricsType,uid:'metrics-test'},{type:'loki',uid:'logs-test'}]);
   assert.equal(saved[0].panels[1].type,'logs');
   assert.ok(queries.some(q=>q.datasource.uid==='logs-test'&&q.expr===panels[1].query));
   fail=true;
@@ -65,5 +65,11 @@ for(const [register,name] of [[registerGrafanaTools,'dashboard_create'],[plugin.
   assert.equal(recovered.created,true);
   assert.equal(saved.length,2);
   assert.equal(saved[1].panels[0].datasource.uid,datasource.uid);
+  const alternate={uid:'alternate-metrics',type:metricsType === 'prometheus' ? 'victoriametrics-metrics-datasource' : 'prometheus',name:'Alternate metrics'};
+  sources.push(alternate);
+  const explicit=(await tools[name].execute('test',{panels:[{...panels[0],datasource:alternate}],openInUi:false})).details;
+  assert.equal(explicit.created,true);
+  assert.equal(saved[2].panels[0].datasource.type,alternate.type);
+  assert.equal(queries.at(-1).datasource.uid,alternate.uid);
  });
 }

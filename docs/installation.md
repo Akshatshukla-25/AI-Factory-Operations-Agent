@@ -202,7 +202,17 @@ All module changes below update an existing AI Factory Operations Agent release 
 
 ### Observability
 
-To connect AI Factory Operations Agent to an existing Prometheus service, run:
+Connect to an existing Prometheus or VictoriaMetrics service with
+`observability.prometheusUrl`. Choose the query base URL for your backend:
+
+| Backend | Example base URL |
+| --- | --- |
+| Prometheus | `http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090` |
+| Single-node VictoriaMetrics | `http://victoriametrics.monitoring.svc.cluster.local:8428` |
+| VictoriaMetrics cluster | `http://vmselect.monitoring.svc.cluster.local:8481/select/0/prometheus` |
+
+Replace `0` with your tenant ID for a VictoriaMetrics cluster. Include any proxy
+prefix and omit `/api/v1`. Set `PROMETHEUS_URL` to your endpoint:
 
 ```bash
 export PROMETHEUS_URL='http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090'
@@ -260,6 +270,7 @@ To connect AI Factory Operations Agent to an existing Grafana service, run:
 ```bash
 export GRAFANA_URL='http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local/grafana'
 export GRAFANA_DATASOURCE_UID='prometheus'
+export GRAFANA_DATASOURCE_TYPE='prometheus'
 export GRAFANA_USERNAME='admin'
 read -rsp 'Grafana password: ' GRAFANA_PASSWORD; echo
 
@@ -275,6 +286,7 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --set modules.grafana.enabled=true \
   --set-string observability.grafanaUrl="$GRAFANA_URL" \
   --set-string observability.grafanaDatasourceUid="$GRAFANA_DATASOURCE_UID" \
+  --set-string observability.grafanaDatasourceType="$GRAFANA_DATASOURCE_TYPE" \
   --set observability.grafanaAuth.existingSecret=mosaic-grafana-auth \
   --wait \
   --timeout 12m
@@ -283,6 +295,11 @@ unset GRAFANA_PASSWORD
 ```
 
 `grafanaUrl` includes Grafana's configured serving path. Use the service root for a root-served Grafana or `/grafana` for the NMC deployment.
+
+For an installed [native VictoriaMetrics datasource](https://docs.victoriametrics.com/victoriametrics/integrations/grafana/datasource/),
+set `GRAFANA_DATASOURCE_UID` to its UID and
+`GRAFANA_DATASOURCE_TYPE=victoriametrics-metrics-datasource`.
+For a Prometheus datasource, keep `prometheus`.
 
 ### Terminal
 

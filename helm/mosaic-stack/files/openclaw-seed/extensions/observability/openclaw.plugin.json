@@ -18,7 +18,7 @@
     "properties": {
       "prometheusUrl": {
         "type": "string",
-        "description": "Prometheus service base URL used for dashboard validation."
+        "description": "Prometheus-compatible query base URL, including any VictoriaMetrics cluster tenant prefix."
       },
       "grafanaEnabled": {
         "type": "boolean",
@@ -69,6 +69,14 @@
       "lokiTenantId": {
         "type": "string",
         "description": "Optional operator-configured Loki tenant."
+      },
+      "datasourceType": {
+        "type": "string",
+        "enum": [
+          "prometheus",
+          "victoriametrics-metrics-datasource"
+        ],
+        "description": "Grafana metrics datasource type. Defaults to prometheus."
       }
     }
   }
