@@ -20,7 +20,7 @@ const fields = {
   lokiSecret: ['Loki Authorization Secret (optional)', ''],
   lokiKey: ['Loki Secret key', 'authorization'],
   grafanaUrl: ['Grafana URL, including serving path', '', 'https://grafana.example.com/grafana'],
-  grafanaUid: ['Prometheus datasource UID', 'prometheus'], grafanaSecret: ['Grafana Secret (username, password)', 'mosaic-grafana-auth'],
+  grafanaUid: ['Metrics datasource UID', 'prometheus'], grafanaType: ['Metrics datasource type', 'prometheus'], grafanaSecret: ['Grafana Secret (username, password)', 'mosaic-grafana-auth'],
   bcmHead: ['BCM SSH head host', '', 'user@bcm-head.example.com'], bcmSecret: ['BCM SSH Secret (id_ecdsa)', 'bcm-host-ssh-key'],
   evidenceRoot: ['Slurm evidence directory on the collector node', '', '/slurm'],
   evidenceNode: ['Slurm collector node hostname', '', 'slurm-login-node'],
@@ -57,6 +57,7 @@ export function buildCommand(state) {
   }
   if (enabled.has('grafana')) {
     set('observability.grafanaUrl', value('grafanaUrl'), true); set('observability.grafanaDatasourceUid', value('grafanaUid'), true);
+    set('observability.grafanaDatasourceType', value('grafanaType'), true);
     set('observability.grafanaAuth.existingSecret', value('grafanaSecret'), true);
   }
   if (enabled.has('bcm')) {
@@ -140,7 +141,7 @@ if (root) {
       if (enabled.has('prometheus')) keys.push('prometheusUrl');
       if (enabled.has('alertmanager')) keys.push('alertmanagerUrl');
       if (enabled.has('loki')) keys.push('lokiUrl', 'lokiTenant', 'lokiSecret', 'lokiKey');
-      if (enabled.has('grafana')) keys.push('grafanaUrl', 'grafanaUid', 'grafanaSecret');
+      if (enabled.has('grafana')) keys.push('grafanaUrl', 'grafanaUid', 'grafanaType', 'grafanaSecret');
       if (enabled.has('slurm')) settingsBody.append(select('slurmBackend', 'Slurm integration', [['bcm', 'Through BCM'], ['vanilla', 'Standalone Slurm']]));
       if (enabled.has('bcm')) keys.push('bcmHead', 'bcmSecret');
       if (enabled.has('slurm') && state.slurmBackend === 'vanilla') keys.push('evidenceRoot', 'evidenceNode');
