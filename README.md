@@ -12,7 +12,7 @@ AI Factory Operations Agent is an NVIDIA blueprint for deploying an extensible a
 Supported workflows include:
 
 - Read-only Kubernetes workload and cluster inspection.
-- Prometheus queries and Grafana dashboard creation.
+- Prometheus and VictoriaMetrics queries and Grafana dashboard creation.
 - Slurm job root-cause analysis from scheduler and log evidence.
 - Optional cluster-management integrations.
 - Sandboxed command execution with an auditable agent workflow.
@@ -29,7 +29,7 @@ OpenShell isolates general agent command execution. Kubernetes, observability, S
 - Runtime: Kubernetes, `kubectl`, and Helm 3.
 - LLM: an OpenAI-compatible endpoint or a cluster capable of running chart-managed vLLM.
 - GPU/driver: required only when deploying chart-managed vLLM; requirements depend on the selected model profile.
-- Optional services: Prometheus, Grafana, Slurm, or cluster-management endpoints for the corresponding modules.
+- Optional services: Prometheus or VictoriaMetrics, Grafana, Slurm, or cluster-management endpoints for the corresponding modules.
 
 ## Getting Started
 

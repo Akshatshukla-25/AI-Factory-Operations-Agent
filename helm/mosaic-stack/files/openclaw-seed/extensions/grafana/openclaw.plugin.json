@@ -19,7 +19,7 @@
       },
       "prometheusUrl": {
         "type": "string",
-        "description": "Prometheus service base URL used for validation."
+        "description": "Prometheus-compatible query base URL, including any VictoriaMetrics cluster tenant prefix."
       },
       "uiUrl": {
         "type": "string",
@@ -50,6 +50,14 @@
         "type": "array",
         "items": { "type": "string" },
         "description": "Optional list of Grafana tool names to suppress."
+      },
+      "datasourceType": {
+        "type": "string",
+        "enum": [
+          "prometheus",
+          "victoriametrics-metrics-datasource"
+        ],
+        "description": "Grafana metrics datasource type. Defaults to prometheus."
       }
     },
     "required": ["grafanaUrl", "prometheusUrl", "datasourceUid"]

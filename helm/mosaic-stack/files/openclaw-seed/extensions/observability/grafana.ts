@@ -6,7 +6,7 @@ declare const Buffer: { from(value: string): { toString(encoding: string): strin
 type PanelSpec = {
   title: string;
   query: string;
-  datasource?: { type: "prometheus" | "loki"; uid: string };
+  datasource?: { type: "prometheus" | "victoriametrics-metrics-datasource" | "loki"; uid: string };
   unit?: string;
   visualization?: "timeseries" | "stat" | "gauge" | "table" | "logs";
   legend?: string;
@@ -118,12 +118,12 @@ async function fetchJson(url: string, options?: RequestInit) {
   return payload as Record<string, unknown>;
 }
 
-function buildGrafanaQueryPayload(panel: PanelSpec, rangeMinutes: number, datasourceUid: string) {
+function buildGrafanaQueryPayload(panel: PanelSpec, rangeMinutes: number, defaultDatasource: NonNullable<PanelSpec["datasource"]>) {
   return {
     queries: [
       {
         refId: "A",
-        datasource: panel.datasource || { type: "prometheus", uid: datasourceUid },
+        datasource: panel.datasource || defaultDatasource,
         expr: panel.query,
         ...(panel.datasource?.type === "loki" ? {queryType: "range", maxLines: 1000} : {}),
         range: true,
@@ -171,7 +171,7 @@ async function validatePanels(
   grafanaUrl: string,
   uiUrl: string,
   headers: Record<string, string>,
-  datasourceUid: string,
+  defaultDatasource: NonNullable<PanelSpec["datasource"]>,
   panels: PanelSpec[],
   requireData: boolean,
   rangeMinutes: number,
@@ -181,8 +181,8 @@ async function validatePanels(
 
   const datasources = await fetchJson(`${grafanaUrl}/api/datasources`, {headers}) as unknown as Array<{uid: string; type: string; name: string}>;
   for (const panel of panels) {
-    const selected = panel.datasource || {type: "prometheus", uid: datasourceUid};
-    if (!["prometheus", "loki"].includes(selected.type) || !datasources.some(source => source.uid === selected.uid && source.type === selected.type)) {
+    const selected = panel.datasource || defaultDatasource;
+    if (!["prometheus", "victoriametrics-metrics-datasource", "loki"].includes(selected.type) || !datasources.some(source => source.uid === selected.uid && source.type === selected.type)) {
       issues.push({panelTitle: panel.title, query: panel.query, severity: "error", message: "Panel datasource UID or type is missing or unavailable. Select the intended datasource from availableDatasources and retry."});
       continue;
     }
@@ -193,10 +193,10 @@ async function validatePanels(
     const url = new URL(`${prometheusUrl}/api/v1/query`);
     url.searchParams.set("query", panel.query);
     try {
-      const payload = selected.type === "prometheus" ? await fetchJson(url.toString()) : {};
+      const payload = selected.type !== "loki" ? await fetchJson(url.toString()) : {};
       const data = payload.data as { result?: unknown[] } | undefined;
       const result = Array.isArray(data?.result) ? data.result : [];
-      if (requireData && selected.type === "prometheus" && result.length === 0) {
+      if (requireData && selected.type !== "loki" && result.length === 0) {
         issues.push({
           panelTitle: panel.title,
           query: panel.query,
@@ -209,7 +209,7 @@ async function validatePanels(
         const grafanaPayload = await fetchJson(`${grafanaUrl}/api/ds/query`, {
           method: "POST",
           headers,
-          body: JSON.stringify(buildGrafanaQueryPayload(panel, rangeMinutes, datasourceUid)),
+          body: JSON.stringify(buildGrafanaQueryPayload(panel, rangeMinutes, defaultDatasource)),
         });
         frameCount = grafanaFrameCount(grafanaPayload);
         if (requireData && frameCount === 0) {
@@ -232,7 +232,7 @@ async function validatePanels(
         const uiProxyPayload = await fetchJson(`${uiUrl}/api/grafana/proxy/api/ds/query`, {
           method: "POST",
           headers: { ...uiAuthHeaders(), Origin: uiUrl },
-          body: JSON.stringify(buildGrafanaQueryPayload(panel, rangeMinutes, datasourceUid)),
+          body: JSON.stringify(buildGrafanaQueryPayload(panel, rangeMinutes, defaultDatasource)),
         });
         const uiFrameCount = grafanaFrameCount(uiProxyPayload);
         if (requireData && uiFrameCount === 0) {
@@ -300,7 +300,7 @@ function appendTimeRange(path: string, rangeMinutes: number) {
   return `${path}${separator}orgId=1&from=now-${Math.trunc(rangeMinutes)}m&to=now&kiosk`;
 }
 
-function buildPanel(panel: PanelSpec, index: number, datasourceUid: string) {
+function buildPanel(panel: PanelSpec, index: number, defaultDatasource: NonNullable<PanelSpec["datasource"]>) {
   const type = panel.visualization || "timeseries";
   const width = type === "stat" || type === "gauge" ? 6 : 12;
   return {
@@ -308,7 +308,7 @@ function buildPanel(panel: PanelSpec, index: number, datasourceUid: string) {
     type,
     title: panel.title,
     description: panel.description,
-    datasource: panel.datasource || { type: "prometheus", uid: datasourceUid },
+    datasource: panel.datasource || defaultDatasource,
     gridPos: {
       h: type === "stat" || type === "gauge" ? 6 : 8,
       w: width,
@@ -337,7 +337,7 @@ function buildPanel(panel: PanelSpec, index: number, datasourceUid: string) {
   };
 }
 
-function buildDashboard(title: string, panels: PanelSpec[], datasourceUid: string, rangeMinutes: number) {
+function buildDashboard(title: string, panels: PanelSpec[], defaultDatasource: NonNullable<PanelSpec["datasource"]>, rangeMinutes: number) {
   return {
     id: null,
     uid: `mosaic-${Date.now().toString(36)}`,
@@ -351,7 +351,7 @@ function buildDashboard(title: string, panels: PanelSpec[], datasourceUid: strin
       from: `now-${Math.max(1, Math.trunc(rangeMinutes))}m`,
       to: "now",
     },
-    panels: panels.map((panel, index) => buildPanel(panel, index, datasourceUid)),
+    panels: panels.map((panel, index) => buildPanel(panel, index, defaultDatasource)),
   };
 }
 
@@ -363,6 +363,10 @@ export function registerGrafanaTools(api: PluginApi) {
     const prometheusUrl = resolveString(api.pluginConfig, "prometheusUrl");
     const uiUrl = resolveString(api.pluginConfig, "uiUrl", DEFAULT_UI_URL);
     const datasourceUid = resolveString(api.pluginConfig, "datasourceUid");
+    const defaultDatasource = {
+      uid: datasourceUid,
+      type: resolveString(api.pluginConfig, "datasourceType", "prometheus") as NonNullable<PanelSpec["datasource"]>["type"],
+    };
     const headers = authHeaders(api.pluginConfig);
     const registerTool = (tool: Parameters<typeof api.registerTool>[0]) => {
       if (isToolEnabled(api.pluginConfig, tool.name)) {
@@ -395,7 +399,7 @@ export function registerGrafanaTools(api: PluginApi) {
     registerTool({
       name: "dashboard_create",
       label: "Create Dashboard",
-      description: "Create a Grafana dashboard after validating every Prometheus or Loki panel query, then open it in the UI Grafana tab.",
+      description: "Create a Grafana dashboard after validating every Prometheus, VictoriaMetrics or Loki panel query, then open it in the UI Grafana tab.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -403,7 +407,7 @@ export function registerGrafanaTools(api: PluginApi) {
           title: { type: "string", description: "Dashboard title." },
           panels: {
             type: "array",
-            description: "Panel specs: title, query (PromQL or LogQL), datasource {type: prometheus or loki, uid: discovered Grafana UID}, visualization (timeseries, stat, gauge, table, logs), optional unit/legend/description. Omit datasource only to use the configured Prometheus default.",
+            description: "Panel specs: title, query (PromQL, MetricsQL or LogQL), datasource {type: prometheus, victoriametrics-metrics-datasource or loki, uid: discovered Grafana UID}, visualization (timeseries, stat, gauge, table, logs), optional unit/legend/description. Omit datasource only to use the configured metrics default.",
             items: { type: "object" },
           },
           rangeMinutes: { type: "number", description: "Dashboard time range in minutes. Default 60." },
@@ -415,12 +419,12 @@ export function registerGrafanaTools(api: PluginApi) {
         const title = stringParam(rawParams.title) || "Generated Dashboard";
         const panels = panelsFromParams(rawParams);
         if (panels.length === 0) {
-          throw new Error("Provide panels with explicit PromQL or LogQL queries.");
+          throw new Error("Provide panels with explicit PromQL, MetricsQL or LogQL queries.");
         }
 
         const requireData = boolParam(rawParams.requireData, true);
         const rangeMinutes = Math.max(1, Math.min(10080, numberParam(rawParams.rangeMinutes, 60)));
-        const validation = await validatePanels(prometheusUrl, grafanaUrl, uiUrl, headers, datasourceUid, panels, requireData, rangeMinutes);
+        const validation = await validatePanels(prometheusUrl, grafanaUrl, uiUrl, headers, defaultDatasource, panels, requireData, rangeMinutes);
         if (!validation.ok) {
           return jsonToolResult({
             created: false,
@@ -429,7 +433,7 @@ export function registerGrafanaTools(api: PluginApi) {
           });
         }
 
-        const dashboard = buildDashboard(title, panels, datasourceUid, rangeMinutes);
+        const dashboard = buildDashboard(title, panels, defaultDatasource, rangeMinutes);
         const createPayload = await fetchJson(`${grafanaUrl}/api/dashboards/db`, {
           method: "POST",
           headers,

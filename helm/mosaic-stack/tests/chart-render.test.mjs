@@ -1169,3 +1169,20 @@ test("external inference can trust a site CA with or without the compatibility p
   assert.doesNotMatch(render("--set", "llm.mode=external,llm.external.baseUrl=https://inference.example.com/v1,llm.external.model=test-model"), /NODE_EXTRA_CA_CERTS/);
   assert.doesNotMatch(render("--set", "llm.external.caCertificateSecret=site-ca"), /NODE_EXTRA_CA_CERTS/);
 });
+
+test("configures a tenant-scoped VictoriaMetrics backend and native Grafana datasource", () => {
+  const endpoint = "http://vmselect.metrics.svc:8481/select/17/prometheus";
+  const args = ["--set-string", `observability.prometheusUrl=${endpoint}`,
+    "--set-string", "observability.grafanaDatasourceUid=vm-metrics",
+    "--set-string", "observability.grafanaDatasourceType=victoriametrics-metrics-datasource"];
+  const seed = render(...args, "--show-only", "templates/openclaw-seed-configmap.yaml");
+  const config = JSON.parse(configMapBlock(seed, "openclaw.json"));
+  for (const name of ["observability", "grafana"]) {
+    assert.equal(config.plugins.entries[name].config.prometheusUrl, endpoint);
+    assert.equal(config.plugins.entries[name].config.datasourceUid, "vm-metrics");
+    assert.equal(config.plugins.entries[name].config.datasourceType, "victoriametrics-metrics-datasource");
+  }
+  for (const template of ["templates/openclaw.yaml", "templates/mosaic-ui.yaml"]) {
+    assert.ok(render(...args, "--show-only", template).includes(endpoint));
+  }
+});
