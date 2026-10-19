@@ -1156,6 +1156,20 @@ test("configures optional Loki access without exposing its credential to UI or s
 });
 
 
+test("external inference can trust a site CA with or without the compatibility proxy", () => {
+  for (const enabled of [true, false]) {
+    const output = render("--set", `llm.mode=external,llm.external.baseUrl=https://inference.example.com/v1,llm.external.model=test-model,llm.requestCompatibility.enabled=${enabled},llm.external.caCertificateSecret=site-ca,llm.external.caCertificateKey=root.pem`);
+    const expectedConsumers = enabled ? 2 : 1;
+    assert.equal([...output.matchAll(/name: NODE_EXTRA_CA_CERTS/g)].length, expectedConsumers);
+    assert.equal([...output.matchAll(/mountPath: \/etc\/llm-ca/g)].length, expectedConsumers);
+    assert.equal([...output.matchAll(/secretName: "site-ca"/g)].length, expectedConsumers);
+    assert.equal([...output.matchAll(/key: "root.pem"/g)].length, expectedConsumers);
+    assert.doesNotMatch(output, /NODE_TLS_REJECT_UNAUTHORIZED/);
+  }
+  assert.doesNotMatch(render("--set", "llm.mode=external,llm.external.baseUrl=https://inference.example.com/v1,llm.external.model=test-model"), /NODE_EXTRA_CA_CERTS/);
+  assert.doesNotMatch(render("--set", "llm.external.caCertificateSecret=site-ca"), /NODE_EXTRA_CA_CERTS/);
+});
+
 test("configures a tenant-scoped VictoriaMetrics backend and native Grafana datasource", () => {
   const endpoint = "http://vmselect.metrics.svc:8481/select/17/prometheus";
   const args = ["--set-string", `observability.prometheusUrl=${endpoint}`,
