@@ -23,12 +23,18 @@ Prefer these tools over shell `curl` when answering questions about historical c
 
 ## Useful starting points
 
-- `observability_metric_names` lists available Prometheus metrics.
-- `observability_query` runs an instant PromQL query.
+- `observability_metric_names` lists available Prometheus or VictoriaMetrics metrics.
+- `observability_query` runs an instant PromQL or MetricsQL query supported by the configured backend.
 - `observability_range_query` runs a historical range query.
 - `dashboard_list` discovers Grafana datasource names, types, and UIDs and searches dashboards.
-- `dashboard_create` validates explicit panel PromQL or LogQL, creates a Grafana dashboard, and opens it in the UI Grafana tab.
+- `dashboard_create` validates explicit panel PromQL, MetricsQL or LogQL, creates a Grafana dashboard, and opens it in the UI Grafana tab.
 - `dashboard_open` opens an existing Grafana dashboard UID in the UI Grafana tab.
+
+For VictoriaMetrics, the same metrics tools use its Prometheus-compatible API.
+Use MetricsQL extensions only when the configured metrics backend is VictoriaMetrics.
+For dashboards, use the datasource UID and type returned by `dashboard_list`.
+VictoriaMetrics may use either `prometheus` or its native
+`victoriametrics-metrics-datasource` Grafana plugin. Preserve the discovered type.
 
 ## Example PromQL
 
