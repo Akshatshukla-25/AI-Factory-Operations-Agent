@@ -35,7 +35,7 @@ uv run --no-project docs/package_agent_docs.py
 ```
 
 CI checks that the bundle matches its sources. Startup stages it under the agent
-workspace's `skills/agent-documentation/docs`, with a deployment profile containing
+workspace's `product-docs/`, with a deployment profile containing
 module enablement and registered cluster names. Credentials are excluded from that
 profile. The current tool catalog and live tool results remain authoritative for
 capabilities and infrastructure state.

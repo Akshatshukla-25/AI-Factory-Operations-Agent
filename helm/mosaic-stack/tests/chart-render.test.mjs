@@ -1097,6 +1097,9 @@ test("packaged product and GPU documentation installs locally with research, UI 
     const seed = join(directory, "seed");
     const home = join(directory, "home");
     execFileSync("mkdir", ["-p", seed, home]);
+    const legacySkill = join(home, "workspace/skills/agent-documentation");
+    execFileSync("mkdir", ["-p", legacySkill]);
+    writeFileSync(join(legacySkill, "SKILL.md"), "Previous documentation skill");
     const seedSection = output.split("name: openclaw-seed\n")[1].split("\n---")[0];
     const binaryData = seedSection.split("binaryData:\n")[1].split("\ndata:")[0];
     for (const line of binaryData.trim().split("\n")) {
@@ -1116,14 +1119,14 @@ test("packaged product and GPU documentation installs locally with research, UI 
       .map(line => line.slice(14)).join("\n")
       .replaceAll("/home/node/.openclaw", home).replaceAll("/seed/", `${seed}/`);
     execFileSync("sh", ["-eu", "-c", script]);
-    const documentation = join(home, "workspace/skills/agent-documentation");
+    assert.equal(existsSync(legacySkill), false);
+    const documentation = join(home, "workspace/product-docs");
     const root = join(chart, "../..");
     const sources = execFileSync("git", ["ls-files", "-z", "README.md", "docs"], {cwd: root, encoding: "utf8"})
       .split("\0").filter(name => name.endsWith(".md"));
     for (const source of sources) {
-      assert.deepEqual(readFileSync(join(documentation, "docs", source)), readFileSync(join(root, source)));
+      assert.deepEqual(readFileSync(join(documentation, source)), readFileSync(join(root, source)));
     }
-    assert.ok(readFileSync(join(documentation, "SKILL.md"), "utf8").startsWith("---\n"));
     assert.equal(JSON.parse(readFileSync(join(documentation, "deployment.json"), "utf8")).modules.kubernetes, false);
     assert.equal(readFileSync(join(home, "workspace/docs/existing-manual.md"), "utf8"), "Existing manual");
     const relative = "skills/gpu-networking";
