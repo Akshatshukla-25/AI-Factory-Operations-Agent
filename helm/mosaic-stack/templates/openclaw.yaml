@@ -214,6 +214,11 @@ spec:
               rm -rf /home/node/.openclaw/identity /home/node/.openclaw/devices
               mkdir -p /home/node/.openclaw/workspace/skills/gpu-networking
               cp /seed/gpu-networking.SKILL.md /home/node/.openclaw/workspace/skills/gpu-networking/SKILL.md
+              documentation=/home/node/.openclaw/workspace/product-docs
+              rm -rf "$documentation" /home/node/.openclaw/workspace/skills/agent-documentation
+              mkdir -p "$documentation"
+              tar -xzf /seed/agent-documentation.tar.gz -C "$documentation"
+              cp /seed/agent-deployment.json "$documentation/deployment.json"
               cp /seed/AGENTS.md /home/node/.openclaw/workspace/AGENTS.md
               cp /seed/HEARTBEAT.md /home/node/.openclaw/workspace/HEARTBEAT.md
               cp /seed/IDENTITY.md /home/node/.openclaw/workspace/IDENTITY.md
