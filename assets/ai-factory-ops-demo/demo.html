@@ -1,0 +1,354 @@
+<!doctype html>
+<!-- SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="fonts.css">
+<style>
+@font-face{font-family:'NVIDIA Sans';src:url('fonts/NVIDIASansVF.woff2') format('woff2-variations');font-weight:100 900;font-display:block}
+html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}
+</style></head><body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script>
+const W=1920,H=1080,FPS=60,DUR=31;
+const ctx=document.getElementById('c').getContext('2d');
+const G='#76b900', GD='rgba(118,185,0,', R='rgba(255,64,48,', WH='rgba(255,255,255,';
+const F="'NVIDIA Sans','Helvetica Neue',Arial,sans-serif";
+const M="'JetBrains Mono',Menlo,monospace";
+const T={title:1.6,fault:5.2,ask:11.4,sys:15.4,heal:25.3};
+const NODEX=100+11*((W-140)/17)+29, NODEY=128+3*104+32;  // the node that went red
+
+const cl=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const p=(t,a,b)=>cl((t-a)/(b-a));
+const eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const eo=x=>1-Math.pow(1-x,3);
+const win=(t,a,b,c,d)=>Math.min(p(t,a,b),1-p(t,c,d));
+const lerp=(a,b,x)=>a+(b-a)*x;
+let S=1;const rnd=()=>{S=(S*1664525+1013904223)%4294967296;return S/4294967296};
+const R0=(n,s)=>{S=s;return Array.from({length:n},rnd)};
+
+const COLS=17,ROWS=8,NX=COLS*ROWS;
+const nph=R0(NX,7), nsp=R0(NX,13), ngr=R0(NX*4,29), grain=R0(9000,101);
+
+function txt(s,x,y,size,col,w=400,al='left',tr=0,fam=F){
+  ctx.font=`${w} ${size}px ${fam}`;ctx.fillStyle=col;ctx.textAlign=al;ctx.textBaseline='alphabetic';
+  if(tr){let cx=x;const tot=[...s].reduce((a,ch)=>a+ctx.measureText(ch).width+tr,0)-tr;
+    if(al==='center')cx=x-tot/2;if(al==='right')cx=x-tot;
+    ctx.textAlign='left';for(const ch of s){ctx.fillText(ch,cx,y);cx+=ctx.measureText(ch).width+tr}
+  } else ctx.fillText(s,x,y);
+}
+function hex(x,y,r){ctx.beginPath();for(let i=0;i<6;i++){const a=Math.PI/180*(60*i-90),px=x+r*Math.cos(a),py=y+r*Math.sin(a);i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.closePath()}
+function line(x1,y1,x2,y2,a,w=1,col=GD){ctx.strokeStyle=col+a+')';ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
+function beam(x1,y1,x2,y2,prog,t,a,col=GD,n=3){
+  if(prog<=0||a<=0)return;
+  const ex=lerp(x1,x2,eo(prog)),ey=lerp(y1,y2,eo(prog));
+  line(x1,y1,ex,ey,a*.5,1.4,col);
+  if(prog>=1)for(let i=0;i<n;i++){const u=((t*.5+i/n)%1),px=lerp(x1,x2,u),py=lerp(y1,y2,u);
+    const g=ctx.createRadialGradient(px,py,0,px,py,8);g.addColorStop(0,col+(a*.95)+')');g.addColorStop(1,col+'0)');
+    ctx.fillStyle=g;ctx.fillRect(px-8,py-8,16,16)}
+}
+function glow(x,y,r,a,col=GD){const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,col+a+')');g.addColorStop(1,col+'0)');ctx.fillStyle=g;ctx.fillRect(x-r,y-r,2*r,2*r)}
+function clipReveal(fn,x,y,w,h,pr){ctx.save();ctx.beginPath();ctx.rect(x,y,w*eo(pr),h);ctx.clip();fn();ctx.restore()}
+function scrim(a,r=820){const g=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,r);
+  g.addColorStop(0,'rgba(0,0,0,'+(.93*a)+')');g.addColorStop(.55,'rgba(0,0,0,'+(.80*a)+')');g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}
+
+/* ---------- the factory ---------- */
+const FAULT=3*COLS+11, GX=(W-140)/COLS, FX=100+11.5*GX, FY=128+3.5*104;
+function factory(t,alpha,alert,ignite){
+  if(alpha<=0)return;
+  for(let j=0;j<ROWS;j++)for(let i=0;i<COLS;i++){
+    const k=j*COLS+i,x=100+i*GX,y=128+j*104;
+    const d=Math.hypot((i-COLS/2)/COLS,(j-ROWS/2)/ROWS);
+    const on=ignite?cl(p(t,.2+d*2.0,1.2+d*2.0)):1;
+    if(on<=0)continue;
+    const f=k===FAULT?alert:0;
+    let a=alpha*on*(.46+.34*Math.sin(t*1.6+nph[k]*6.28));
+    if(alert>0&&k!==FAULT)a*=lerp(1,.28,alert);
+    const col=f>.02?R:GD, aa=a*(f>.02?lerp(1,2.2,f):1);
+    ctx.strokeStyle=col+cl(aa*.8)+')';ctx.lineWidth=1;ctx.strokeRect(x,y,58,64);
+    for(let b=0;b<4;b++){
+      const u=ngr[k*4+b],lv=.25+.7*Math.abs(Math.sin(t*(.8+nsp[k])+u*6.28+b));
+      const hh=46*(f>.02?lerp(lv,.95,f*Math.abs(Math.sin(t*9+b))):lv);
+      ctx.fillStyle=col+cl(aa*.9)+')';ctx.fillRect(x+7+b*12,y+54-hh,7,hh);
+    }
+    if(f>.02){glow(x+29,y+32,90,.22*f,R);ctx.strokeStyle=R+cl(f*.9)+')';ctx.lineWidth=2;ctx.strokeRect(x-6,y-6,70,76)}
+  }
+}
+
+/* ---------- datacenter row (top of the system scene) ---------- */
+const ZONES=[[0,1,'power and cooling',[0]],
+             [2,6,'gpu compute',[0,2]],
+             [7,8,'network fabric',[2,4]],
+             [9,10,'storage',[4,3]],
+             [11,12,'control plane',[1,5]]];
+const NR=13, RW=72, RSTEP=78, RH=176, RDX=25, RDY=16, RX0=439, RYB=474;
+const rkind=i=>ZONES.findIndex(z=>i>=z[0]&&i<=z[1]);
+const rseed=R0(NR*16,991);
+function rack(x,yb,a,kind,t,i){
+  if(a<=0)return;
+  const w=RW,h=RH,x2=x+w,yt=yb-h;
+  ctx.fillStyle='rgba(4,6,4,.96)';
+  ctx.beginPath();ctx.moveTo(x,yt);ctx.lineTo(x2,yt);ctx.lineTo(x2+RDX,yt-RDY);ctx.lineTo(x+RDX,yt-RDY);ctx.closePath();ctx.fill();
+  ctx.strokeStyle=GD+(a*.5)+')';ctx.lineWidth=1;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x2,yt);ctx.lineTo(x2+RDX,yt-RDY);ctx.lineTo(x2+RDX,yb-RDY);ctx.lineTo(x2,yb);ctx.closePath();
+  ctx.fillStyle='rgba(2,3,2,.96)';ctx.fill();ctx.strokeStyle=GD+(a*.32)+')';ctx.stroke();
+  ctx.fillStyle='rgba(6,8,6,.96)';ctx.fillRect(x,yt,w,h);
+  ctx.strokeStyle=GD+(a*.62)+')';ctx.strokeRect(x+.5,yt+.5,w-1,h-1);
+  ctx.save();ctx.beginPath();ctx.rect(x+4,yt+4,w-8,h-8);ctx.clip();
+  const ix=x+8,iw=w-16,S=n=>(h-20)/n;
+  if(kind===0){
+    const bh=(h-34)/2;
+    for(let k=0;k<2;k++){const yy=yt+12+k*(bh+10);
+      ctx.strokeStyle=GD+(a*.45)+')';ctx.strokeRect(ix+.5,yy+.5,iw-1,bh);
+      ctx.fillStyle=GD+(a*.4)+')';
+      for(let m=0;m<5;m++)ctx.fillRect(ix+7,yy+9+m*(bh-12)/5,iw-14,2)}
+  } else if(kind===1){
+    const st=S(8);
+    for(let k=0;k<8;k++){const yy=yt+10+k*st;
+      ctx.fillStyle=GD+(a*.2)+')';ctx.fillRect(ix,yy,iw,st-5);
+      for(let m=0;m<4;m++){const u=rseed[(i*16+k*4+m)%rseed.length];
+        const lv=.35+.65*Math.abs(Math.sin(t*(1.1+u)+u*6.28+k));
+        ctx.fillStyle=GD+(a*lv)+')';ctx.fillRect(ix+4+m*(iw-8)/4,yy+2,(iw-8)/4-4,st-9)}}
+  } else if(kind===2){
+    const st=S(6);
+    for(let k=0;k<6;k++){const yy=yt+12+k*st;
+      ctx.strokeStyle=GD+(a*.3)+')';ctx.beginPath();ctx.moveTo(ix,yy);ctx.lineTo(ix+iw,yy);ctx.stroke();
+      for(let m=0;m<3;m++){const u=rseed[(i*16+k*3+m)%rseed.length];
+        ctx.strokeStyle=GD+(a*(.45+.45*Math.abs(Math.sin(t*.7+u*6.28))))+')';ctx.lineWidth=1.4;
+        const bx=ix+3+m*(iw-6)/3;
+        ctx.beginPath();ctx.moveTo(bx,yy);ctx.bezierCurveTo(bx+7,yy+st*.5,bx+13,yy+st*.5,bx+17,yy+st-2);ctx.stroke();ctx.lineWidth=1}}
+  } else if(kind===3){
+    const st=S(14);
+    for(let k=0;k<14;k++){const yy=yt+9+k*st,u=rseed[(i*16+k)%rseed.length];
+      ctx.fillStyle=GD+(a*(.16+.32*Math.abs(Math.sin(t*.5+u*6.28))))+')';ctx.fillRect(ix,yy,iw,st-3)}
+  } else {
+    const st=S(5);
+    for(let k=0;k<5;k++){const yy=yt+12+k*st,u=rseed[(i*16+k)%rseed.length];
+      ctx.strokeStyle=GD+(a*.35)+')';ctx.strokeRect(ix+.5,yy+.5,iw-1,st-10);
+      ctx.fillStyle=GD+(a*(.3+.6*Math.abs(Math.sin(t*1.6+u*6.28))))+')';ctx.fillRect(ix+5,yy+5,(iw-10)*(.3+.5*u),st-20)}
+  }
+  ctx.restore();
+}
+
+/* ---------- agents ---------- */
+const AG=['Hardware','Kubernetes','Observability','Research','Job recovery','Cluster management'];
+const EV=['nvidia-smi · ipmitool','run_kubectl','prometheus · grafana','runbooks · site knowledge','slurm_job_evidence','bcm_execute_cmsh'];
+const apos=i=>[286+i*270,756];
+function agentIcon(i,x,y,r,a){
+  ctx.strokeStyle=GD+a+')';ctx.lineWidth=2.1;ctx.lineCap='round';
+  ctx.save();ctx.translate(x,y);ctx.scale(r/34,r/34);ctx.beginPath();
+  if(i===0){ctx.moveTo(-9,9);ctx.lineTo(4,-4);ctx.moveTo(4,-4);ctx.arc(7,-7,5,Math.PI*.75,Math.PI*2.25);}
+  if(i===1){ctx.arc(0,0,10,0,6.283);ctx.moveTo(-14,0);ctx.lineTo(14,0);ctx.moveTo(0,-14);ctx.lineTo(0,14);}
+  if(i===2){[[-10,4],[-2,-2],[6,-9]].forEach(([bx,bh])=>{ctx.moveTo(bx,11);ctx.lineTo(bx,bh)})}
+  if(i===3){ctx.moveTo(0,-9);ctx.lineTo(0,10);ctx.moveTo(0,-9);ctx.bezierCurveTo(-6,-13,-11,-12,-13,-11);ctx.lineTo(-13,8);ctx.bezierCurveTo(-11,7,-6,7,0,10);ctx.moveTo(0,-9);ctx.bezierCurveTo(6,-13,11,-12,13,-11);ctx.lineTo(13,8);ctx.bezierCurveTo(11,7,6,7,0,10);}
+  if(i===4){ctx.arc(-2,-2,9,0,6.283);ctx.moveTo(5,5);ctx.lineTo(13,13);}
+  if(i===5){[-10,0,10].forEach(yy=>{ctx.moveTo(-12,yy);ctx.lineTo(12,yy)})}
+  ctx.stroke();ctx.restore();
+}
+
+/* ---------- the system: hardware above, agents below ---------- */
+const BANDY=584;
+function system(t,alpha){
+  if(alpha<=0)return;
+  const step=.95, t0=1.2, out=1-p(t,6.0,7.0);
+  const act=t<t0?-1:Math.min(4,Math.floor((t-t0)/step));
+  const zseen=zi=>t>=t0+zi*step;
+  const zc=z=>(RX0+z[0]*RSTEP+RX0+z[1]*RSTEP+RW)/2;
+  const alit=i=>{let v=0;ZONES.forEach((z,zi)=>{if(z[3].includes(i)&&zseen(zi))v=Math.max(v,zi===act?1:.5)});return v};
+  ctx.save();ctx.globalAlpha=alpha;
+
+  for(let i=0;i<NR;i++){
+    const bp=cl(p(t,.15+i*.05,.7+i*.05));
+    if(bp<=0)continue;
+    const z=rkind(i);
+    rack(RX0+i*RSTEP,RYB,bp*out*(act<0?1:(z===act?1:.22)),z,t,i);
+  }
+  ZONES.forEach((z,zi)=>{
+    const pr=cl(p(t,.8+zi*.1,1.4+zi*.1));if(pr<=0)return;
+    const on=act<0?.5:(zi===act?1:.2);
+    ctx.globalAlpha=alpha*pr*on*out;
+    ctx.strokeStyle=GD+'.5)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(RX0+z[0]*RSTEP,RYB+22);ctx.lineTo(RX0+z[1]*RSTEP+RW,RYB+22);ctx.stroke();
+    txt(z[2],zc(z),RYB+54,22,WH+((zi===act?.95:.55)*out)+')',500,'center');
+    ctx.globalAlpha=alpha;
+  });
+
+  // runtime band
+  const bp=cl(p(t,.6,1.3));
+  if(bp>0){
+    ctx.globalAlpha=alpha*bp*out;
+    const x1=lerp(W/2,240,eo(bp)),x2=lerp(W/2,1680,eo(bp));
+    line(x1,BANDY,x2,BANDY,.28,1,WH);
+    const s='AI Factory Operations Agent';
+    ctx.font=`500 24px ${F}`;const tw=ctx.measureText(s).width;
+    if(out>.02){ctx.fillStyle='#000';ctx.fillRect(W/2-tw/2-26,BANDY-22,tw+52,44)}
+    txt(s,W/2,BANDY+8,24,WH+(.92*out)+')',500,'center',1);
+    ctx.globalAlpha=alpha;
+  }
+
+  // beams: zone -> agents, then the agents themselves
+  ZONES.forEach((z,zi)=>{
+    if(!zseen(zi))return;
+    const pr=cl(p(t,t0+zi*step,t0+zi*step+.5)), on=zi===act?.95:.3;
+    z[3].forEach(ai=>{const [ax,ay]=apos(ai);
+      beam(zc(z),RYB+34,ax,ay-46,pr,t+zi,alpha*on*out,GD,zi===act?3:1)});
+  });
+  const conv=p(t,6.2,7.2), gone=p(t,6.7,7.6);
+  for(let i=0;i<6;i++){
+    const lit=alit(i);if(lit<=0)continue;
+    const [ax,ay]=apos(i),r=42*(1-.35*conv),a=lit*(1-gone);
+    const x=lerp(ax,W/2,eio(conv)), y=lerp(ay,BANDY+20,eio(conv));
+    if(conv>0)beam(ax,ay,W/2,BANDY+20,cl(conv*1.6),t+i,alpha*(1-gone)*.7);
+    if(a<=0)continue;
+    glow(x,y,r*2.3,.13*a);
+    hex(x,y,r);ctx.fillStyle='rgba(8,10,6,.92)';ctx.fill();
+    ctx.strokeStyle=GD+(a*.9)+')';ctx.lineWidth=2;ctx.stroke();
+    agentIcon(i,x,y-1,r*.6,a*.95);
+    txt(AG[i],x,y+r+32,20,WH+(a*.92*(1-conv))+')',500,'center');
+  }
+  ctx.restore();
+}
+
+/* the answer forms where the agents met, then leaves for the node that went red */
+function answer(t){
+  const grow=p(t,6.7,7.5), hold=1-p(t,8.5,8.85);
+  const cy=BANDY+20;
+  if(hold>0&&grow>0){
+    const w=lerp(120,620,eo(grow)), h=lerp(40,148,eio(grow)), a=hold;
+    ctx.save();ctx.globalAlpha=a;
+    glow(W/2,cy,w*.8,.10);
+    ctx.fillStyle='rgba(10,11,9,.97)';ctx.fillRect(W/2-w/2,cy-h/2,w,h);
+    ctx.strokeStyle=GD+'.55)';ctx.lineWidth=1;ctx.strokeRect(W/2-w/2+.5,cy-h/2+.5,w-1,h-1);
+    if(grow>=1)txt('root cause',W/2,cy+14,42,WH+'.97)',400,'center',1);
+    ctx.restore();
+  }
+  // the answer travels out and lands on the node
+  const fl=p(t,8.85,9.85);
+  if(fl>0&&fl<1.001){
+    const u=eio(fl), x=lerp(W/2,NODEX,u), y=lerp(cy,NODEY,u)-Math.sin(u*Math.PI)*150;
+    ctx.save();
+    line(W/2,cy,x,y,.16*(1-u*.4),1.5);
+    glow(x,y,lerp(90,44,u),.85);
+    ctx.fillStyle='rgba(255,255,255,.95)';ctx.beginPath();ctx.arc(x,y,lerp(9,5,u),0,6.283);ctx.fill();
+    ctx.restore();
+  }
+}
+
+/* ---------- root cause ---------- */
+const RCA=[['scheduler accounting','the run exited early, not on its own'],
+           ['job logs','the collective stalled on a subset of ranks'],
+           ['node health','a fabric link went down and came back']];
+function card(t,a){
+  if(a<=0)return;
+  const x=330,y=290,w=1260,h=470;
+  ctx.save();ctx.globalAlpha=a;
+  ctx.fillStyle='rgba(10,11,9,.97)';ctx.fillRect(x,y,w,h);
+  ctx.strokeStyle=GD+'.35)';ctx.lineWidth=1;ctx.strokeRect(x+.5,y+.5,w-1,h-1);
+  ctx.fillStyle=G;ctx.fillRect(x,y,4,h);
+  txt('evidence-based root cause',x+48,y+70,20,GD+'.95)',500,'left',2.6);
+  clipReveal(()=>txt('a fabric link flap severed the collective ring',x+48,y+142,44,WH+'.97)',500),x+40,y+100,w-80,64,p(t,.15,.9));
+  RCA.forEach(([src,s],i)=>{
+    const yy=y+214+i*58,pr=p(t,.5+i*.22,1.0+i*.22);
+    if(pr<=0)return;
+    ctx.globalAlpha=a*pr;
+    ctx.fillStyle=GD+'.8)';ctx.fillRect(x+48,yy-7,7,7);
+    txt(src,x+72,yy,19,GD+'.75)',400,'left',0,M);
+    txt(s,x+372,yy,22,WH+'.88)',400);
+    ctx.globalAlpha=a;
+  });
+  let pr=p(t,1.25,1.8);
+  if(pr>0){ctx.globalAlpha=a*pr;
+    line(x+48,y+396,x+w-48,y+396,.18,1,WH);
+    txt('recommended  ·  drain the affected node, requeue from the last checkpoint, open a fabric ticket',x+48,y+432,21,GD+'.92)',400);
+    ctx.globalAlpha=a}
+  ctx.restore();
+}
+
+/* ---------- overlays ---------- */
+function overlay(t){
+  const g=ctx.createRadialGradient(W/2,H/2,H*.42,W/2,H/2,H*1.05);
+  g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.62)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  const off=Math.floor(t*60)*337;
+  ctx.globalAlpha=.035;ctx.fillStyle='#fff';
+  for(let i=0;i<3000;i++){const a=grain[(i*3+off)%9000],b=grain[(i*3+1+off)%9000];ctx.fillRect(a*W|0,b*H|0,1.5,1.5)}
+  ctx.globalAlpha=1;
+  const bar=Math.round(90*eo(p(t,0,.9)));
+  ctx.fillStyle='#000';ctx.fillRect(0,0,W,bar);ctx.fillRect(0,H-bar,W,bar);
+}
+
+/* ================= timeline ================= */
+function draw(t){
+  ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+
+  /* --- opening factory, fault, and the healed reprise --- */
+  const fa=win(t,0,1.1,10.4,12.2), ha=p(t,T.heal-.9,T.heal);
+  if(fa>0||ha>0){
+    let cs=1,cx=0,cy=0;
+    if(t<10.6){const u=eio(p(t,5.2,9.0));cs=lerp(1,2.25,u);cx=lerp(0,W/2-FX,u);cy=lerp(0,H/2-FY,u)}
+    else if(t<12.0){const u=eio(p(t,10.6,12.0));cs=lerp(2.25,1,u);cx=lerp(W/2-FX,0,u);cy=lerp(H/2-FY,0,u)}
+    cs*=lerp(1,1.035,(t%8)/8);
+    ctx.save();ctx.translate(W/2+cx,H/2+cy);ctx.scale(cs,cs);ctx.translate(-W/2,-H/2);
+    if(fa>0)factory(t,fa,win(t,5.4,6.2,10.8,11.8),true);
+    if(ha>0)factory(t,ha,1-p(t,T.heal,T.heal+1.5),false);
+    ctx.restore();
+  }
+
+  const imp=win(t,T.heal-.06,T.heal,T.heal,T.heal+.7);
+  if(imp>0){ctx.save();glow(NODEX,NODEY,lerp(120,520,p(t,T.heal,T.heal+.7)),.5*imp,WH);ctx.restore()}
+
+  /* title */
+  const ta=win(t,T.title,T.title+1.1,4.4,5.4);
+  if(ta>0){scrim(ta);ctx.save();ctx.globalAlpha=ta;
+    const sl=lerp(26,0,eo(p(t,T.title,T.title+1.4)));
+    txt('AI Factory Operations Agent',W/2,H/2+24+sl,84,WH+'.98)',700,'center',-1);
+    ctx.restore()}
+
+  /* alert */
+  const aa=win(t,6.4,7.0,9.8,10.6);
+  if(aa>0){ctx.save();ctx.globalAlpha=aa;
+    const x=W/2-430,y=H-280;
+    ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(x,y,860,88);
+    ctx.fillStyle=R+(.55+.45*Math.abs(Math.sin(t*4)))+')';ctx.fillRect(x,y,4,88);
+    txt('a training run has stopped',x+34,y+58,34,WH+'.95)',400);
+    ctx.restore()}
+
+  /* the ask */
+  const qa=win(t,T.ask,T.ask+.7,14.9,15.6);
+  if(qa>0){ctx.save();ctx.globalAlpha=qa;
+    const y=H/2-90,x=W/2-560;
+    ctx.strokeStyle=WH+'.14)';ctx.lineWidth=1;ctx.strokeRect(x+.5,y+.5,1120,110);
+    ctx.fillStyle=G;ctx.fillRect(x,y,3,110);
+    const q='what happened to our training run?';
+    const n=Math.floor(q.length*cl(p(t,11.9,13.4)));
+    txt(q.slice(0,n),x+40,y+70,34,WH+'.95)',400);
+    ctx.font=`400 34px ${F}`;
+    if(t<13.6||Math.sin(t*8)>0){ctx.fillStyle=G;ctx.fillRect(x+46+ctx.measureText(q.slice(0,n)).width,y+42,3,36)}
+    const ifs=['browser ui','mosaic cli','mosaic-mcp'];
+    ifs.forEach((s,i)=>{const pr=p(t,13.1+i*.16,13.8+i*.16);if(pr<=0)return;
+      ctx.globalAlpha=qa*pr;
+      const bx=W/2-409+i*280;
+      ctx.strokeStyle=WH+'.12)';ctx.strokeRect(bx+.5,y+165.5,258,54);
+      txt(s,bx+129,y+199,19,WH+'.66)',400,'center',0,M);
+      ctx.globalAlpha=qa});
+    ctx.restore()}
+
+  /* the system, then the answer it produces */
+  const sa=win(t,T.sys,T.sys+.8,25.0,25.4);
+  if(sa>0){system(t-T.sys,sa);answer(t-T.sys)}
+
+  /* back to work */
+  const ba=win(t,T.heal+2.2,T.heal+3.2,DUR+1,DUR+2);
+  if(ba>0){scrim(ba);ctx.save();ctx.globalAlpha=ba;
+    const sl=lerp(16,0,eo(p(t,T.heal+2.2,T.heal+3.6)));
+    txt('back to work',W/2,H/2-110+sl,44,GD+'.92)',400,'center');
+    txt('AI Factory Operations Agent',W/2,H/2-6+sl,74,WH+'.98)',700,'center',-1);
+    txt('github.com/NVIDIA/AI-Factory-Operations-Agent',W/2,H/2+84+sl,24,WH+'.72)',400,'center');
+    ctx.restore()}
+
+  overlay(t);
+}
+window.renderFrame=f=>{draw(f/FPS);return true};
+window.TOTAL=DUR*FPS;
+document.fonts.ready.then(()=>renderFrame(0));
+</script></body></html>
