@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # Full pipeline: fonts -> score -> frames -> mp4.
 # Frames render in parallel; JOBS defaults to 4.
 set -euo pipefail

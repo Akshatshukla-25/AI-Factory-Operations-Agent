@@ -63,4 +63,5 @@ CODE_OF_CONDUCT
 Developer Certificate of Origin <DCO>
 IP_REVIEW
 Building the documentation <docs/building>
+Motion graphics demo <assets/ai-factory-ops-demo/README>
 ```

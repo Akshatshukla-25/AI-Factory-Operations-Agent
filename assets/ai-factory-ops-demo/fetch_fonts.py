@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """Download the two webfonts the demo uses and write fonts.css next to them.
 
 Nothing here is committed: NVIDIA Sans is NVIDIA's brand font, and keeping the

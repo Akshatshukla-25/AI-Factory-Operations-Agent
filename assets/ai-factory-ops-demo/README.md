@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # AI Factory Operations Agent — motion graphics demo
 
 A 31s, 1920×1080 @ 60fps cinematic explainer for the NVIDIA
