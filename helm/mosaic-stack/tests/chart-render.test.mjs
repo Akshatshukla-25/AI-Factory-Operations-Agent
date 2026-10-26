@@ -234,7 +234,7 @@ test("pins every default runtime image", () => {
   const output = render();
   assert.ok(
     output.includes(
-      "vllm/vllm-openai@sha256:251eba5cc7c12fed0b75da22a9240e582b1c9e39f6fbc064f86781b963bd814f",
+      "vllm/vllm-openai@sha256:cb9bc64f0f038c2c2ebf13b31248fb87aca40c356c3d20f363be087cfcff1fcd",
     ),
   );
   assert.doesNotMatch(output, /image:\s*["']?\S+:latest(?:["']|\s|$)/);
@@ -409,7 +409,7 @@ test("configures chart-managed vLLM for non-thinking generation", () => {
 test("defaults to a single Super inference pod with one GPU", () => {
   const output = render("--show-only", "templates/vllm.yaml");
   assert.equal((output.match(/kind: StatefulSet/g) ?? []).length, 1);
-  assert.match(output, /NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4/);
+  assert.match(output, /NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4/);
   assert.match(output, /--tensor-parallel-size=1/);
   assert.equal((output.match(/nvidia.com\/gpu: "1"/g) ?? []).length, 2);
   assert.match(output, /memory: 64Gi/);
@@ -1170,6 +1170,37 @@ test("configures optional Loki access without exposing its credential to UI or s
   assert.doesNotMatch(disabled, /name: MOSAIC_LOKI_AUTHORIZATION/);
   const defaults = render("--show-only", "templates/openclaw.yaml");
   assert.doesNotMatch(defaults, /name: MOSAIC_LOKI_AUTHORIZATION/);
+});
+
+test("external inference can trust a site CA with or without the compatibility proxy", () => {
+  for (const enabled of [true, false]) {
+    const output = render("--set", `llm.mode=external,llm.external.baseUrl=https://inference.example.com/v1,llm.external.model=test-model,llm.requestCompatibility.enabled=${enabled},llm.external.caCertificateSecret=site-ca,llm.external.caCertificateKey=root.pem`);
+    const expectedConsumers = enabled ? 2 : 1;
+    assert.equal([...output.matchAll(/name: NODE_EXTRA_CA_CERTS/g)].length, expectedConsumers);
+    assert.equal([...output.matchAll(/mountPath: \/etc\/llm-ca/g)].length, expectedConsumers);
+    assert.equal([...output.matchAll(/secretName: "site-ca"/g)].length, expectedConsumers);
+    assert.equal([...output.matchAll(/key: "root.pem"/g)].length, expectedConsumers);
+    assert.doesNotMatch(output, /NODE_TLS_REJECT_UNAUTHORIZED/);
+  }
+  assert.doesNotMatch(render("--set", "llm.mode=external,llm.external.baseUrl=https://inference.example.com/v1,llm.external.model=test-model"), /NODE_EXTRA_CA_CERTS/);
+  assert.doesNotMatch(render("--set", "llm.external.caCertificateSecret=site-ca"), /NODE_EXTRA_CA_CERTS/);
+});
+
+test("configures a tenant-scoped VictoriaMetrics backend and native Grafana datasource", () => {
+  const endpoint = "http://vmselect.metrics.svc:8481/select/17/prometheus";
+  const args = ["--set-string", `observability.prometheusUrl=${endpoint}`,
+    "--set-string", "observability.grafanaDatasourceUid=vm-metrics",
+    "--set-string", "observability.grafanaDatasourceType=victoriametrics-metrics-datasource"];
+  const seed = render(...args, "--show-only", "templates/openclaw-seed-configmap.yaml");
+  const config = JSON.parse(configMapBlock(seed, "openclaw.json"));
+  for (const name of ["observability", "grafana"]) {
+    assert.equal(config.plugins.entries[name].config.prometheusUrl, endpoint);
+    assert.equal(config.plugins.entries[name].config.datasourceUid, "vm-metrics");
+    assert.equal(config.plugins.entries[name].config.datasourceType, "victoriametrics-metrics-datasource");
+  }
+  for (const template of ["templates/openclaw.yaml", "templates/mosaic-ui.yaml"]) {
+    assert.ok(render(...args, "--show-only", template).includes(endpoint));
+  }
 });
 
 test("deployment reference reflects module settings without exporting credentials", () => {
