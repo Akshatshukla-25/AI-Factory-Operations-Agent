@@ -555,6 +555,94 @@ test("rejects incomplete native Slack configuration", () => {
   }
 });
 
+const disableWebSearch = ["--set", "modules.webSearch.enabled=false"];
+const braveArgs = [
+  "--set",
+  "modules.webSearch.provider=brave",
+  "--set",
+  "modules.webSearch.existingSecret=mosaic-web-search",
+];
+
+function openclawConfig(...args) {
+  return JSON.parse(configMapBlock(render(...args, "--show-only", "templates/openclaw-seed-configmap.yaml"), "openclaw.json"));
+}
+
+test("does not render web search when disabled", () => {
+  const seed = render(...disableWebSearch, "--show-only", "templates/openclaw-seed-configmap.yaml");
+  const runtime = render(...disableWebSearch, "--show-only", "templates/openclaw.yaml");
+  const config = configMapBlock(seed, "openclaw.json");
+  assert.doesNotMatch(config, /duckduckgo|brave|group:web|"web":/);
+  assert.doesNotMatch(configMapBlock(seed, "AGENTS.md"), /web_search|web_fetch/);
+  assert.equal(JSON.parse(configMapBlock(seed, "agent-deployment.json")).modules.webSearch, false);
+  assert.doesNotMatch(runtime, /init-web-search-plugin|brave-plugin|WEB_SEARCH_KEY|BRAVE_API_KEY/);
+});
+
+test("enables key-free DuckDuckGo web search by default", () => {
+  const config = openclawConfig();
+  assert.ok(config.plugins.allow.includes("duckduckgo"));
+  assert.ok(!config.plugins.allow.includes("brave"));
+  assert.deepEqual(config.plugins.entries.duckduckgo, { enabled: true });
+  assert.deepEqual(config.tools.web, { search: { provider: "duckduckgo", maxResults: 5 } });
+  assert.deepEqual(config.tools.alsoAllow, ["group:plugins", "group:web"]);
+  assert.deepEqual(config.tools.sandbox.tools.alsoAllow, ["group:plugins", "group:web"]);
+
+  const seed = render("--show-only", "templates/openclaw-seed-configmap.yaml");
+  assert.match(configMapBlock(seed, "AGENTS.md"), /## Web Search[\s\S]*`web_search`[\s\S]*Never place hostnames/);
+  assert.equal(JSON.parse(configMapBlock(seed, "agent-deployment.json")).modules.webSearch, true);
+  assert.doesNotMatch(render("--show-only", "templates/openclaw.yaml"), /init-web-search-plugin|brave-plugin|WEB_SEARCH_KEY|BRAVE_API_KEY/);
+});
+
+test("renders Brave web search when selected", () => {
+  const config = openclawConfig(...braveArgs);
+  assert.ok(config.plugins.allow.includes("brave"));
+  assert.ok(!config.plugins.allow.includes("duckduckgo"));
+  assert.deepEqual(config.plugins.entries.brave, {
+    enabled: true,
+    config: { webSearch: { apiKey: "${BRAVE_API_KEY}" } },
+  });
+  assert.equal(config.plugins.entries.duckduckgo, undefined);
+  assert.deepEqual(config.tools.web, { search: { provider: "brave", maxResults: 5 } });
+
+  const runtime = render(...braveArgs, "--set", "modules.webSearch.apiKeySecretKey=key", "--show-only", "templates/openclaw.yaml");
+  assert.match(runtime, /name: init-web-search-plugin/);
+  assert.match(runtime, /registry\.npmjs\.org\/@openclaw\/brave-plugin\/-\/brave-plugin-2026\.6\.10\.tgz/);
+  assert.match(runtime, /printf '%s  %s\\n' "e922a777[0-9a-f]{56}" "\$plugin" \| sha256sum -c -/);
+  assert.match(runtime, /node \/app\/dist\/index\.js plugins install \/tmp\/brave-plugin --force/);
+  for (const name of ["WEB_SEARCH_KEY", "BRAVE_API_KEY"]) {
+    assert.match(runtime, new RegExp(`- name: ${name}\\n\\s+valueFrom:\\n\\s+secretKeyRef:\\n\\s+name: "mosaic-web-search"\\n\\s+key: "key"`));
+  }
+});
+
+test("web search adds only its own OpenClaw config", () => {
+  const disabled = openclawConfig(...disableWebSearch);
+  for (const [provider, args] of [["duckduckgo", []], ["brave", braveArgs]]) {
+    const enabled = openclawConfig(...args);
+    enabled.plugins.allow = enabled.plugins.allow.filter(name => name !== provider);
+    delete enabled.plugins.entries[provider];
+    delete enabled.tools.web;
+    enabled.tools.alsoAllow = enabled.tools.alsoAllow.filter(name => name !== "group:web");
+    enabled.tools.sandbox.tools.alsoAllow = enabled.tools.sandbox.tools.alsoAllow.filter(name => name !== "group:web");
+    assert.deepEqual(enabled, disabled);
+  }
+});
+
+test("rejects incomplete web search configuration", () => {
+  for (const [args, expected] of [
+    [["--set", "modules.webSearch.provider=brave"], /existingSecret is required when modules\.webSearch\.provider=brave/],
+    [["--set", "modules.webSearch.provider=tavily"], /modules\.webSearch\.provider must be one of: duckduckgo, brave/],
+    [["--set", "modules.webSearch.maxResults=0"], /maxResults must be between 1 and 10/],
+    [["--set", "modules.webSearch.maxResults=11"], /maxResults must be between 1 and 10/],
+  ]) {
+    const result = spawnSync(
+      "helm",
+      ["template", "mosaic", chart, "--namespace", "mosaic-test", ...args],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, expected);
+  }
+});
+
 test("provides a Slack app manifest for approved DMs and mentions", () => {
   const manifest = JSON.parse(readFileSync(slackManifest, "utf8"));
   assert.equal(manifest.display_information.name, "mosaic");

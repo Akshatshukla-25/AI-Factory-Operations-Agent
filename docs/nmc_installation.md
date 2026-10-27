@@ -80,6 +80,8 @@ helm upgrade --install mosaic "$MOSAIC_CHART" \
 
 The command is a complete declaration and can be rerun unchanged. The SSH private key remains in the `bcm-host-ssh-key` Kubernetes Secret and is mounted only into the Base Command Manager adapter pod. On the first generic Base Command Manager MCP request, the adapter installs its matching remote server version on the Base Command Manager head automatically. With both modules enabled, the Slurm skill selects Base Command Manager WLM access instead of host-mounted vanilla evidence.
 
+Web search is enabled by default and uses DuckDuckGo without an API key, so the admin cluster must allow HTTPS egress from the `openclaw` pod to `duckduckgo.com`. On air-gapped NMC installations, add `--set modules.webSearch.enabled=false` to the command above. To use Brave Search or turn web search off later, see [Web search](installation.md#web-search).
+
 Before following the shared upgrade workflow in a new shell, run `module load kubernetes/k8s-admin` to select the NMC admin cluster.
 
 ## Self-hosted inference
