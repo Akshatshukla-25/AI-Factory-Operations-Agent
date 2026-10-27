@@ -66,6 +66,19 @@ modules:
       chatApiKey: EMPTY
   terminal:
     enabled: false
+  webSearch:
+    # DuckDuckGo needs no key; set false for air-gapped installs.
+    enabled: true
+    # duckduckgo or brave
+    provider: duckduckgo
+    maxResults: 5
+    # Secret holding the API key under apiKeySecretKey; required for brave.
+    existingSecret: ""
+    apiKeySecretKey: WEB_SEARCH_KEY
+    brave:
+      # OpenClaw 2026.6.10 does not bundle Brave; install the matching official plugin.
+      pluginVersion: 2026.6.10
+      pluginSha256: e922a777c4b1bce6c905c47f328ea8c2b3c3ca7bc86b6f736cf52d5fdfc46b75
   clusters:
     enabled: false
   edit:

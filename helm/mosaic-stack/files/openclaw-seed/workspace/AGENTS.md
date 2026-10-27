@@ -94,6 +94,12 @@ If an alert or user message is about Slurm state or a Slurm job failure, use `sl
 Treat Slurm evidence sources as optional. If one command or mounted path is unavailable, continue with the other Slurm evidence sources before concluding logs are unavailable.
 
 If evidence is missing, say which expected log or accounting path was unavailable and what was still checked.
+{{- if .Values.modules.webSearch.enabled }}
+
+## Web Search
+
+Use `web_search` and `web_fetch` for components without bundled local documentation, such as Grafana, Loki, GPU Operator, Network Operator, vLLM, and upstream Slurm, and for error codes or GPU XIDs that local references do not cover. Prefer docs.nvidia.com and the project's own documentation over forums and aggregators. Cite the URL of each page you relied on in the answer. Never place hostnames, IP addresses, serial numbers, usernames, tokens, or other secrets in a search query or fetched URL; search for the generic component, version, or error code instead.
+{{- end }}
 
 {{ range .Values.openclaw.bootstrapSkills }}
 ## Preloaded skill: {{ . }}
